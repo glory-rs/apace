@@ -2,6 +2,14 @@
 
 use cursor_icon::CursorIcon;
 
+/// Input-method intent, independent of a particular windowing library.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ImePurpose {
+    #[default]
+    Normal,
+    Password,
+}
+
 /// Type representing an error performing a clipboard operation
 // TODO: fill out with meaningful errors
 pub struct ClipboardError;
@@ -9,6 +17,9 @@ pub struct ClipboardError;
 /// Abstraction over windowing / operating system ("shell") functionality that allows a Blitz document
 /// to access that functionality without depending on a specific shell environment.
 pub trait ShellProvider: Send + Sync + 'static {
+    fn set_ime_purpose(&self, purpose: ImePurpose) {
+        let _ = purpose;
+    }
     fn request_redraw(&self) {}
     fn set_cursor(&self, icon: Option<CursorIcon>) {
         let _ = icon;

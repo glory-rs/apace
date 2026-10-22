@@ -60,6 +60,8 @@ pub struct DocumentMutator<'doc> {
 
     /// Whether any mutation that affects rendered output has been performed
     mutations_occurred: bool,
+    // Captured lazily only for a cross-parent move of focused ancestry.
+    previous_focus_path: Option<Vec<NodeId>>,
 
     /// The (latest) node which has been mounted in and had autofocus=true, if any
     #[cfg(feature = "autofocus")]
@@ -85,6 +87,7 @@ impl DocumentMutator<'_> {
             form_nodes: HashSet::new(),
             recompute_is_animating: false,
             mutations_occurred: false,
+            previous_focus_path: None,
             #[cfg(feature = "autofocus")]
             node_to_autofocus: None,
         }
@@ -324,6 +327,15 @@ impl DocumentMutator<'_> {
         }
 
         element.attrs.set(name.clone(), value);
+        if name.local == local_name!("type") && element.name.local == local_name!("input") {
+            if let Some(input) = element.text_input_data_mut() {
+                input.set_password(value == "password");
+                input.refresh_display_config(
+                    &mut self.doc.font_ctx.lock().unwrap(),
+                    &mut self.doc.layout_ctx,
+                );
+            }
+        }
 
         // Focusability is cached on the element and comes from these
         // attributes, so it has to follow a change to one of them: a widget
@@ -385,6 +397,9 @@ impl DocumentMutator<'_> {
         if (tag, attr) == tag_and_attr!("input", "checked") {
             set_input_checked_state(element, value.to_string());
         } else if (tag, attr) == tag_and_attr!("img", "src") {
+            // A request for a new src must not keep the previous image alive.
+            node.element_data_mut().unwrap().special_data =
+                SpecialElementData::Image(Box::new(crate::node::ImageData::None));
             self.load_image(node_id);
         } else if (tag, attr) == tag_and_attr!("canvas", "src") {
             self.load_custom_paint_src(node_id);
@@ -466,6 +481,11 @@ impl DocumentMutator<'_> {
         }
 
         // Update text input value
+        if name.local == local_name!("type") && element.name.local == local_name!("input") {
+            if let Some(input) = element.text_input_data_mut() {
+                input.set_password(false);
+            }
+        }
         if name.local == local_name!("value") {
             if let Some(input_data) = element.text_input_data_mut() {
                 input_data.set_text(
@@ -489,6 +509,11 @@ impl DocumentMutator<'_> {
             node.set_restyle_hint(RestyleHint::RESTYLE_STYLE_ATTRIBUTE);
         } else if (tag, attr) == tag_and_attr!("input", "checked") {
             element.set_checkbox_input_checked(false);
+        } else if (tag, attr) == tag_and_attr!("img", "src") {
+            element.special_data =
+                SpecialElementData::Image(Box::new(crate::node::ImageData::None));
+            node.clear_layout_cache();
+            node.insert_damage(ALL_DAMAGE);
         } else if (tag, attr) == tag_and_attr!("canvas", "src") {
             self.recompute_is_animating = true;
         } else if (tag, attr) == tag_and_attr!("link", "href") {
@@ -668,6 +693,21 @@ impl DocumentMutator<'_> {
         child_ids: &[NodeId],
         insert_children_fn: &dyn Fn(&mut Node, &[NodeId]),
     ) {
+        if self.previous_focus_path.is_none()
+            && self.doc.focus_node_id.is_some()
+            && child_ids.iter().any(|id| {
+                self.doc.nodes[*id]
+                    .parent
+                    .is_some_and(|old| old != parent_id)
+            })
+        {
+            let path = self
+                .doc
+                .maybe_node_element_ancestors(self.doc.focus_node_id);
+            if path.iter().any(|id| child_ids.contains(id)) {
+                self.previous_focus_path = Some(path);
+            }
+        }
         let new_parent_is_in_document = self.doc.nodes[parent_id].flags.is_in_document();
         self.mutations_occurred |= new_parent_is_in_document && !child_ids.is_empty();
         // Detach the children from their old parents *before* inserting them into
@@ -877,6 +917,12 @@ impl DocumentMutator<'_> {
 
 impl<'doc> DocumentMutator<'doc> {
     pub fn flush(&mut self) {
+        if let Some(old) = self.previous_focus_path.take() {
+            let new = self
+                .doc
+                .maybe_node_element_ancestors(self.doc.focus_node_id);
+            self.doc.update_focus_within_paths(old, new);
+        }
         if self.recompute_is_animating {
             self.doc.has_canvas = self.doc.compute_has_canvas();
         }
@@ -946,6 +992,18 @@ impl<'doc> DocumentMutator<'doc> {
             let NodeData::Element(ref mut element) = node.data else {
                 return;
             };
+
+            // Resume may keep identical computed style, so the style diff does
+            // not schedule image layers again. Revisit cancelled layer loads.
+            if element
+                .background_images
+                .iter()
+                .chain(&element.mask_images)
+                .flatten()
+                .any(|image| image.status == crate::node::Status::Error)
+            {
+                doc.pending_style_image_nodes.push(node_id);
+            }
 
             // Custom widgets replace the element's built-in tag-specific behaviour
             #[cfg(feature = "custom-widget")]
@@ -1107,18 +1165,19 @@ impl<'doc> DocumentMutator<'doc> {
         }
 
         let url = self.doc.resolve_url(href);
-        let handler = ResourceHandler::new(
+        let Some(handler) = ResourceHandler::new(
             self.doc.tx.clone(),
             self.doc.id(),
             Some(node.id),
             self.doc.shell_provider.clone(),
             StylesheetHandler {
-                source_url: url.clone(),
                 guard: self.doc.guard.clone(),
                 net_provider: self.doc.net_provider.clone(),
                 abort_signal: self.doc.abort_signal.clone(),
             },
-        );
+        ) else {
+            return;
+        };
 
         if is_in_head && !self.doc.net_provider.is_noop() {
             self.doc
@@ -1153,10 +1212,17 @@ impl<'doc> DocumentMutator<'doc> {
     }
 
     fn load_image(&mut self, target_id: NodeId) {
+        if self.doc.net_provider.is_noop() {
+            return;
+        }
         let node = &self.doc.nodes[target_id];
         if let Some(raw_src) = node.attr(local_name!("src")) {
             if !raw_src.is_empty() {
-                let src = self.doc.resolve_url(raw_src);
+                let Some(src) = self.doc.url.resolve_relative(raw_src) else {
+                    self.doc.resource_counters.failures =
+                        self.doc.resource_counters.failures.saturating_add(1);
+                    return;
+                };
                 let src_string = src.as_str();
 
                 // Check cache first
@@ -1175,27 +1241,46 @@ impl<'doc> DocumentMutator<'doc> {
                 if let Some(waiting_list) = self.doc.pending_images.get_mut(src_string) {
                     #[cfg(feature = "tracing")]
                     tracing::info!("Image {src_string} already pending, queueing node {target_id}");
-                    waiting_list.push((target_id, ImageType::Image));
+                    if waiting_list.waiters.len() < self.doc.resource_limits.image_waiters {
+                        waiting_list.waiters.push((target_id, ImageType::Image));
+                    } else {
+                        self.doc.resource_counters.rejected =
+                            self.doc.resource_counters.rejected.saturating_add(1);
+                    }
                     return;
                 }
 
                 // Start fetch and track as pending
                 #[cfg(feature = "tracing")]
                 tracing::info!("Fetching image {src_string}");
-                self.doc
-                    .pending_images
-                    .insert(src_string.to_string(), vec![(target_id, ImageType::Image)]);
+                if self.doc.pending_images.len() >= self.doc.resource_limits.pending_images
+                    || self.doc.resource_limits.image_waiters == 0
+                {
+                    self.doc.resource_counters.rejected =
+                        self.doc.resource_counters.rejected.saturating_add(1);
+                    return;
+                }
+                let Some(handler) = ResourceHandler::new(
+                    self.doc.tx.clone(),
+                    self.doc.id(),
+                    None,
+                    self.doc.shell_provider.clone(),
+                    ImageHandler::with_limits(ImageType::Image, self.doc.resource_limits),
+                ) else {
+                    return;
+                };
+                self.doc.pending_images.insert(
+                    src_string.to_string(),
+                    crate::resources::PendingImage {
+                        request_id: handler.request_id(),
+                        waiters: vec![(target_id, ImageType::Image)],
+                    },
+                );
 
                 self.doc.net_provider.fetch(
                     self.doc.id(),
                     self.doc.build_request(src),
-                    ResourceHandler::boxed(
-                        self.doc.tx.clone(),
-                        self.doc.id(),
-                        None, // Don't pass node_id, we'll handle it via pending_images
-                        self.doc.shell_provider.clone(),
-                        ImageHandler::new(ImageType::Image),
-                    ),
+                    Box::new(handler),
                 );
             }
         }

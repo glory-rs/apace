@@ -343,7 +343,7 @@ pub(crate) fn handle_pointermove<F: FnMut(DomEvent)>(
             y: final_layout.padding.top + final_layout.border.top,
         };
         if !text_input_data.is_multiline {
-            let layout = text_input_data.editor.try_layout().unwrap();
+            let layout = text_input_data.display_editor().try_layout().unwrap();
             let content_box_height = final_layout.content_box_height();
             let input_height = layout.height() / layout.scale();
             let y_offset = ((content_box_height - input_height) / 2.0).max(0.0);
@@ -363,10 +363,11 @@ pub(crate) fn handle_pointermove<F: FnMut(DomEvent)>(
         let x = (hit.x - content_box_offset.x) as f64 * doc.viewport.scale_f64() + scroll_x;
         let y = (hit.y - content_box_offset.y) as f64 * doc.viewport.scale_f64() + scroll_y;
 
-        text_input_data
-            .editor
-            .driver(&mut doc.font_ctx.lock().unwrap(), &mut doc.layout_ctx)
-            .extend_selection_to_point(x as f32, y as f32);
+        text_input_data.point_selection(
+            &mut doc.font_ctx.lock().unwrap(),
+            &mut doc.layout_ctx,
+            |driver| driver.extend_selection_to_point(x as f32, y as f32),
+        );
 
         changed = true;
     } else if event.is_mouse()
@@ -462,7 +463,7 @@ pub(crate) fn handle_pointerdown(
                         y: node.final_layout().padding.top + node.final_layout().border.top,
                     };
                     if !text_input_data.is_multiline {
-                        let layout = text_input_data.editor.try_layout().unwrap();
+                        let layout = text_input_data.display_editor().try_layout().unwrap();
                         let content_box_height = node.final_layout().content_box_height();
                         let input_height = layout.height() / layout.scale();
                         let y_offset = ((content_box_height - input_height) / 2.0).max(0.0);
@@ -522,21 +523,20 @@ pub(crate) fn handle_pointerdown(
             let el = node.data.downcast_element_mut().unwrap();
             if let SpecialElementData::TextInput(ref mut text_input_data) = el.special_data {
                 let mut font_ctx = doc.font_ctx.lock().unwrap();
-                let mut driver = text_input_data
-                    .editor
-                    .driver(&mut font_ctx, &mut doc.layout_ctx);
-
-                match click_count {
-                    1 => {
-                        if mods.shift() {
-                            driver.shift_click_extension(tx as f32, ty as f32);
-                        } else {
-                            driver.move_to_point(tx as f32, ty as f32);
+                let password = text_input_data.is_password();
+                text_input_data.point_selection(&mut font_ctx, &mut doc.layout_ctx, |driver| {
+                    match click_count {
+                        1 => {
+                            if mods.shift() {
+                                driver.shift_click_extension(tx as f32, ty as f32);
+                            } else {
+                                driver.move_to_point(tx as f32, ty as f32);
+                            }
                         }
+                        2 if !password => driver.select_word_at_point(tx as f32, ty as f32),
+                        _ => driver.select_hard_line_at_point(tx as f32, ty as f32),
                     }
-                    2 => driver.select_word_at_point(tx as f32, ty as f32),
-                    _ => driver.select_hard_line_at_point(tx as f32, ty as f32),
-                }
+                });
 
                 drop(font_ctx);
             }

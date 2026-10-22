@@ -316,8 +316,12 @@ impl LayoutPassState<'_> {
                             .downcast_element_mut()
                             .and_then(|el| el.text_input_data_mut())
                         {
-                            input.editor.set_width(Some(content_width * scale));
+                            input.set_width(Some(content_width * scale));
                             input.editor.refresh_layout(
+                                &mut doc.font_ctx.lock().unwrap(),
+                                &mut doc.layout_ctx,
+                            );
+                            input.refresh_display_config(
                                 &mut doc.font_ctx.lock().unwrap(),
                                 &mut doc.layout_ctx,
                             );

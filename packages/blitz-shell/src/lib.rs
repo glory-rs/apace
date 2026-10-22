@@ -37,13 +37,17 @@ pub use crate::net::DataUriNetProvider;
     )
 ))]
 use blitz_traits::shell::FileDialogFilter;
-use blitz_traits::shell::ShellProvider;
-use std::sync::Arc;
+use blitz_traits::shell::{ImePurpose, ShellProvider};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use winit::cursor::{Cursor, CursorIcon};
 use winit::dpi::{LogicalPosition, LogicalSize};
 pub use winit::event_loop::{ControlFlow, EventLoop, EventLoopProxy};
 pub use winit::window::Window;
-use winit::window::{ImeCapabilities, ImeEnableRequest, ImeRequest, ImeRequestData};
+use winit::window::{
+    ImeCapabilities, ImeEnableRequest, ImeHint, ImePurpose as WindowImePurpose, ImeRequest,
+    ImeRequestData,
+};
 
 #[derive(Default)]
 pub struct Config {
@@ -87,14 +91,41 @@ pub fn current_android_app() -> android_activity::AndroidApp {
 pub struct BlitzShellProvider {
     window: Arc<dyn Window>,
     proxy: BlitzShellProxy,
+    ime_password: AtomicBool,
+    ime_enabled: AtomicBool,
+    ime_area: Mutex<Option<[f32; 4]>>,
 }
 impl BlitzShellProvider {
     pub fn new(window: Arc<dyn Window>, proxy: BlitzShellProxy) -> Self {
-        Self { window, proxy }
+        Self {
+            window,
+            proxy,
+            ime_password: AtomicBool::new(false),
+            ime_enabled: AtomicBool::new(false),
+            ime_area: Mutex::new(None),
+        }
+    }
+    fn ime_data(&self) -> ImeRequestData {
+        let purpose = if self.ime_password.load(Ordering::Relaxed) {
+            WindowImePurpose::Password
+        } else {
+            WindowImePurpose::Normal
+        };
+        ImeRequestData::default().with_hint_and_purpose(ImeHint::NONE, purpose)
     }
 }
 
 impl ShellProvider for BlitzShellProvider {
+    fn set_ime_purpose(&self, purpose: ImePurpose) {
+        let password = purpose == ImePurpose::Password;
+        if self.ime_password.swap(password, Ordering::Relaxed) != password
+            && self.ime_enabled.load(Ordering::Relaxed)
+        {
+            let _ = self
+                .window
+                .request_ime_update(ImeRequest::Update(self.ime_data()));
+        }
+    }
     fn request_redraw(&self) {
         self.window.request_redraw();
     }
@@ -114,15 +145,40 @@ impl ShellProvider for BlitzShellProvider {
         self.window.set_title(&title);
     }
     fn set_ime_enabled(&self, is_enabled: bool) {
+        *self.ime_area.lock().unwrap() = None;
         if is_enabled {
-            let _ = self.window.request_ime_update(ImeRequest::Enable(
-                ImeEnableRequest::new(ImeCapabilities::new(), ImeRequestData::default()).unwrap(),
+            let data = self.ime_data().with_cursor_area(
+                LogicalPosition::new(0., 0.).into(),
+                LogicalSize::new(0., 0.).into(),
+            );
+            let result = self.window.request_ime_update(ImeRequest::Enable(
+                ImeEnableRequest::new(
+                    ImeCapabilities::new()
+                        .with_hint_and_purpose()
+                        .with_cursor_area(),
+                    data,
+                )
+                .unwrap(),
             ));
+            self.ime_enabled.store(result.is_ok(), Ordering::Relaxed);
         } else {
+            self.ime_enabled.store(false, Ordering::Relaxed);
             let _ = self.window.request_ime_update(ImeRequest::Disable);
         }
     }
     fn set_ime_cursor_area(&self, x: f32, y: f32, width: f32, height: f32) {
+        if !self.ime_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+        {
+            let mut previous = self.ime_area.lock().unwrap();
+            let area = [x, y, width, height];
+            if *previous == Some(area) {
+                return;
+            }
+            *previous = Some(area);
+        }
+        // Release the cache lock before asking the windowing system to update.
         let _ = self.window.request_ime_update(ImeRequest::Update(
             ImeRequestData::default().with_cursor_area(
                 LogicalPosition::new(x, y).into(),

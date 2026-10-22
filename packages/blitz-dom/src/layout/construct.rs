@@ -873,6 +873,7 @@ fn create_text_editor(doc: &mut BaseDocument, input_element_id: NodeId, is_multi
     } else {
         node.attr(local_name!("value")).unwrap_or("").to_string()
     };
+    let is_password = !is_multiline && node.attr(local_name!("type")) == Some("password");
     let element = &mut node.data.downcast_element_mut().unwrap();
     if !matches!(element.special_data, SpecialElementData::TextInput(_)) {
         let mut text_input_data = TextInputData::new(is_multiline);
@@ -885,9 +886,11 @@ fn create_text_editor(doc: &mut BaseDocument, input_element_id: NodeId, is_multi
         unreachable!();
     };
 
+    text_input_data.set_password(is_password);
+    text_input_data.set_width(None);
+    text_input_data.set_alignment(alignment);
     let editor = &mut text_input_data.editor;
     editor.set_scale(doc.viewport.scale_f64() as f32);
-    editor.set_width(None);
 
     let styles = editor.edit_styles();
     styles.retain(|_| false);
@@ -908,10 +911,10 @@ fn create_text_editor(doc: &mut BaseDocument, input_element_id: NodeId, is_multi
         parley_style.white_space_collapse,
     ));
     styles.insert(StyleProperty::Brush(parley_style.brush));
-    editor.set_alignment(alignment);
     editor.set_base_direction(base_direction);
 
     editor.refresh_layout(&mut doc.font_ctx.lock().unwrap(), &mut doc.layout_ctx);
+    text_input_data.refresh_display_config(&mut doc.font_ctx.lock().unwrap(), &mut doc.layout_ctx);
 }
 
 fn create_checkbox_input(doc: &mut BaseDocument, input_element_id: NodeId) {
@@ -947,15 +950,32 @@ pub(crate) fn find_inline_layout_embedded_boxes(
     fn flush_inline_pseudos_recursive(doc: &mut BaseDocument, node_id: NodeId) {
         doc.iter_children_mut(node_id, |child_id, doc| {
             flush_pseudo_elements(doc, child_id);
-            let display = doc.nodes[node_id]
+            let display = doc.nodes[child_id]
                 .display_style()
                 .unwrap_or(Display::inline());
             let do_recurse = match (display.outside(), display.inside()) {
                 (DisplayOutside::None, DisplayInside::Contents) => true,
-                (DisplayOutside::Inline, DisplayInside::Flow) => true,
+                (DisplayOutside::Inline, DisplayInside::Flow) => doc.nodes[child_id]
+                    .element_data()
+                    .is_some_and(|el| !is_inline_box_element(&el.name.local)),
                 (_, _) => false,
             };
             if do_recurse {
+                // This child is flattened into the ancestor's inline context,
+                // so it no longer owns a layout child list or inline root. A
+                // former block/flex item can still have those caches: retaining
+                // them gives embedded controls two conflicting layout parents.
+                // Retire only construction state; keep DOM nodes/control data.
+                let owned = std::mem::take(&mut doc.nodes[child_id].anonymous_blocks);
+                for anonymous in owned {
+                    doc.deallocate_anonymous_block(anonymous);
+                }
+                let node = &mut doc.nodes[child_id];
+                node.layout_children.get_mut().take();
+                node.flags.reset_construction_flags();
+                if let Some(element) = node.element_data_mut() {
+                    element.take_inline_layout();
+                }
                 flush_inline_pseudos_recursive(doc, child_id);
             }
         });

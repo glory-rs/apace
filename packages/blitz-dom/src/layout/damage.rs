@@ -417,6 +417,10 @@ pub(crate) fn compute_layout_damage(old: &ComputedValues, new: &ComputedValues) 
     let text_shaping_needs_recollect = || {
         if old.clone_direction() != new.clone_direction()
             || old.clone_unicode_bidi() != new.clone_unicode_bidi()
+            // nowrap <-> normal changes wrapping without changing whitespace
+            // collapse. The Parley layout retains its collected wrap mode, so
+            // relayout alone would keep using the previous value.
+            || old.clone_text_wrap_mode() != new.clone_text_wrap_mode()
         {
             return true;
         }
@@ -506,6 +510,7 @@ impl BaseDocument {
                 input.editor.set_scale(scale);
                 let mut font_ctx = font_ctx.lock().unwrap();
                 input.editor.refresh_layout(&mut font_ctx, layout_ctx);
+                input.refresh_display_config(&mut font_ctx, layout_ctx);
                 node.insert_damage(ONLY_RELAYOUT);
             }
         }
@@ -573,7 +578,9 @@ impl BaseDocument {
                 StyloImage::Url(ComputedUrl::Valid(new_url)) => {
                     let old_image = elem_images[idx].as_ref();
                     let old_image_url = old_image.map(|data| &data.url);
-                    if old_image_url.is_some_and(|old_url| **new_url == **old_url) {
+                    if old_image_url.is_some_and(|old_url| **new_url == **old_url)
+                        && old_image.is_some_and(|image| image.status != Status::Error)
+                    {
                         continue;
                     }
 
@@ -591,14 +598,47 @@ impl BaseDocument {
                         // Image is already being fetched, queue this node
                         #[cfg(feature = "tracing")]
                         tracing::info!("Image {url_str} already pending, queueing node {node_id}");
-                        waiting_list.push((node_id, kind.image_type(idx)));
+                        if waiting_list.waiters.len() < self.resource_limits.image_waiters {
+                            waiting_list.waiters.push((node_id, kind.image_type(idx)));
+                        } else {
+                            self.resource_counters.rejected =
+                                self.resource_counters.rejected.saturating_add(1);
+                        }
                         Some(ImageResourceData::new(new_url.clone()))
                     } else {
                         // Start fetch and track as pending
                         #[cfg(feature = "tracing")]
                         tracing::info!("Fetching image {url_str}");
-                        self.pending_images
-                            .insert(url_str.to_string(), vec![(node_id, kind.image_type(idx))]);
+                        if self.net_provider.is_noop()
+                            || self.pending_images.len() >= self.resource_limits.pending_images
+                            || self.resource_limits.image_waiters == 0
+                        {
+                            self.resource_counters.rejected =
+                                self.resource_counters.rejected.saturating_add(1);
+                            let mut resource = ImageResourceData::new(new_url.clone());
+                            resource.status = Status::Error;
+                            elem_images[idx] = Some(resource);
+                            continue;
+                        }
+                        let Some(handler) = ResourceHandler::new(
+                            self.tx.clone(),
+                            doc_id,
+                            None,
+                            self.shell_provider.clone(),
+                            ImageHandler::with_limits(kind.image_type(idx), self.resource_limits),
+                        ) else {
+                            let mut resource = ImageResourceData::new(new_url.clone());
+                            resource.status = Status::Error;
+                            elem_images[idx] = Some(resource);
+                            continue;
+                        };
+                        self.pending_images.insert(
+                            url_str.to_string(),
+                            crate::resources::PendingImage {
+                                request_id: handler.request_id(),
+                                waiters: vec![(node_id, kind.image_type(idx))],
+                            },
+                        );
 
                         self.net_provider.fetch(
                             doc_id,
@@ -606,13 +646,7 @@ impl BaseDocument {
                                 (**new_url).clone(),
                                 self.abort_signal.as_ref(),
                             ),
-                            ResourceHandler::boxed(
-                                self.tx.clone(),
-                                doc_id,
-                                None, // Don't pass node_id, we'll handle via pending_images
-                                self.shell_provider.clone(),
-                                ImageHandler::new(kind.image_type(idx)),
-                            ),
+                            Box::new(handler),
                         );
 
                         Some(ImageResourceData::new(new_url.clone()))

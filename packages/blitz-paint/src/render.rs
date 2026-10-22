@@ -924,7 +924,7 @@ impl ElementCx<'_, '_> {
 
             if self.node.is_focussed() {
                 // Render selection/caret
-                for (rect, _line_idx) in input_data.editor.selection_geometry().iter() {
+                for (rect, _line_idx) in input_data.display_editor().selection_geometry().iter() {
                     scene.fill(
                         Fill::NonZero,
                         transform,
@@ -933,7 +933,7 @@ impl ElementCx<'_, '_> {
                         &convert_rect(rect),
                     );
                 }
-                if let Some(cursor) = input_data.editor.cursor_geometry(1.5) {
+                if let Some(cursor) = input_data.cursor_geometry(1.5) {
                     let color = self.style.get_inherited_text().color;
                     let caret_color = match &self.style.get_inherited_ui().caret_color.0 {
                         ColorOrAuto::Auto => color,
@@ -954,7 +954,7 @@ impl ElementCx<'_, '_> {
             let mut draw_text_context = self.context.draw_text_context.borrow_mut();
             crate::text::stroke_text(
                 scene,
-                input_data.editor.try_layout().unwrap().lines(),
+                input_data.display_editor().try_layout().unwrap().lines(),
                 self.context.dom,
                 transform,
                 self.scale,

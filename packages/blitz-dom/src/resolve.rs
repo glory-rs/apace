@@ -116,6 +116,11 @@ impl BaseDocument {
         // Resolve transforms
         self.resolve_transforms(root_node_id);
         timer.record_time("transform");
+        // Only the current editor needs caret scrolling/IME placement after
+        // value, purpose, DPI or viewport changes. Never walk all inputs.
+        if let Some(focus) = self.focus_node_id {
+            self.clamp_text_input_scroll(focus);
+        }
 
         // Build paint children / stacking contexts for damaged subtrees. Runs
         // after layout and transforms so that stacking-context roots created by

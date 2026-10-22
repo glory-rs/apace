@@ -7,6 +7,7 @@ use crate::net::{
     Resource, ResourceHandler, ResourceLoadResponse, StylesheetHandler, StylesheetLoader,
 };
 use crate::node::{ImageData, NodeFlags, RasterImageData, SpecialElementData, Status, TextBrush};
+use crate::resource_queue::DocumentSender;
 use crate::scrolling::ScrollAnimationState;
 use crate::selection::TextSelection;
 use crate::stylo_device::{DeviceChanges, make_device};
@@ -38,7 +39,7 @@ use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, OnceLock, RwLockReadGuard, RwLockWriteGuard};
 use std::task::{Context as TaskContext, Waker};
 use style::Atom;
@@ -253,7 +254,7 @@ pub struct BaseDocument {
     pub(crate) subdocument_depth: usize,
 
     // Events
-    pub(crate) tx: Sender<DocumentEvent>,
+    pub(crate) tx: DocumentSender,
     // rx will always be Some, except temporarily while processing events
     pub(crate) rx: Option<Receiver<DocumentEvent>>,
 
@@ -360,12 +361,14 @@ pub struct BaseDocument {
 
     /// Cache of loaded images, keyed by URL. Allows reusing images across multiple
     /// elements without re-fetching from the network.
-    pub(crate) image_cache: HashMap<String, ImageData>,
+    pub(crate) image_cache: crate::resources::ImageCache,
+    pub(crate) resource_limits: crate::ResourceLimits,
+    pub(crate) resource_counters: crate::ResourceStats,
 
     /// Tracks in-flight image requests. When an image is being fetched, additional
     /// requests for the same URL are queued here instead of starting new fetches.
     /// Value is a list of (node_id, image_type) pairs waiting for the image.
-    pub(crate) pending_images: HashMap<String, Vec<(NodeId, ImageType)>>,
+    pub(crate) pending_images: HashMap<String, crate::resources::PendingImage>,
 
     /// Nodes whose `background-image`/`mask-image` layers need flushing to
     /// dedicated storage on the node because their style changed (populated by
@@ -466,6 +469,7 @@ impl BaseDocument {
             .unwrap_or_else(|| Arc::new(DummyHtmlParserProvider));
 
         let (tx, rx) = channel();
+        let tx = DocumentSender::new(tx);
 
         let mut doc = Self {
             id,
@@ -514,7 +518,9 @@ impl BaseDocument {
 
             changed_nodes: HashSet::new(),
             deferred_construction_nodes: Vec::new(),
-            image_cache: HashMap::new(),
+            image_cache: crate::resources::ImageCache::default(),
+            resource_limits: crate::ResourceLimits::default(),
+            resource_counters: crate::ResourceStats::default(),
             pending_images: HashMap::new(),
             pending_style_image_nodes: Vec::new(),
             pending_critical_resources: HashSet::new(),
@@ -572,6 +578,22 @@ impl BaseDocument {
     /// Set the Document's shell provider
     pub fn set_shell_provider(&mut self, shell_provider: Arc<dyn ShellProvider>) {
         self.shell_provider = shell_provider;
+        if let Some(node) = self.focus_node_id.and_then(|id| self.nodes.get(id)) {
+            if let Some(input) = node
+                .element_data()
+                .and_then(|element| element.text_input_data())
+            {
+                self.shell_provider.set_ime_purpose(if input.is_password() {
+                    blitz_traits::shell::ImePurpose::Password
+                } else {
+                    blitz_traits::shell::ImePurpose::Normal
+                });
+                self.shell_provider.set_ime_enabled(true);
+                if let Some((x, y, width, height)) = node.text_input_ime_cursor_area() {
+                    self.shell_provider.set_ime_cursor_area(x, y, width, height);
+                }
+            }
+        }
     }
 
     /// Set the Document's html parser provider
@@ -942,10 +964,12 @@ impl BaseDocument {
         if self.active_node_id == Some(node_id) {
             self.active_node_id = self.nearest_surviving_element_ancestor(node_id);
         }
-        if self.focus_node_id == Some(node_id) {
-            let shell_provider = self.shell_provider.clone();
-            self.nodes[node_id].blur(shell_provider);
-            self.focus_node_id = None;
+        if self.focus_node_id == Some(node_id)
+            || self.nodes[node_id]
+                .element_data()
+                .is_some_and(|el| el.element_state.contains(ElementState::FOCUS_WITHIN))
+        {
+            self.clear_focus();
         }
         if self.mousedown_node_id == Some(node_id) {
             self.mousedown_node_id = None;
@@ -1123,21 +1147,23 @@ impl BaseDocument {
                     // println!("Node {node_id} {href} {href_to_reload} {} {}", resolved_href.as_str(), resolved_href.as_str() == url_to_reload);
                     if href == href_to_reload {
                         let resolved_href = self.resolve_url(href);
+                        let Some(handler) = ResourceHandler::boxed(
+                            self.tx.clone(),
+                            self.id,
+                            Some(node_id),
+                            self.shell_provider.clone(),
+                            StylesheetHandler {
+                                guard: self.guard.clone(),
+                                net_provider: self.net_provider.clone(),
+                                abort_signal: self.abort_signal.clone(),
+                            },
+                        ) else {
+                            continue;
+                        };
                         self.net_provider.fetch(
                             self.id(),
                             self.build_request(resolved_href.clone()),
-                            ResourceHandler::boxed(
-                                self.tx.clone(),
-                                self.id,
-                                Some(node_id),
-                                self.shell_provider.clone(),
-                                StylesheetHandler {
-                                    source_url: resolved_href,
-                                    guard: self.guard.clone(),
-                                    net_provider: self.net_provider.clone(),
-                                    abort_signal: self.abort_signal.clone(),
-                                },
-                            ),
+                            handler,
                         );
                     }
                 }
@@ -1256,17 +1282,27 @@ impl BaseDocument {
         }
     }
 
-    pub fn handle_messages(&mut self) {
+    pub fn handle_messages(&mut self) -> bool {
+        self.tx.pool.observe();
+        self.prune_resource_interests();
         // Remove event Reciever from the Document so that we can process events
         // without holding a borrow to the Document
         let rx = self.rx.take().unwrap();
 
-        while let Ok(msg) = rx.try_recv() {
+        let mut processed = 0;
+        while processed < 64
+            && let Ok(msg) = rx.try_recv()
+        {
             self.handle_message(msg);
+            processed += 1;
         }
 
         // Put Reciever back
         self.rx = Some(rx);
+        if processed == 64 {
+            self.shell_provider.request_redraw();
+        }
+        processed > 0
     }
 
     pub fn handle_message(&mut self, msg: DocumentEvent) {
@@ -1283,12 +1319,54 @@ impl BaseDocument {
 
     pub fn load_resource(&mut self, res: ResourceLoadResponse) {
         self.pending_critical_resources.remove(&res.request_id);
+        if res.ticket.as_ref().is_some_and(|ticket| !ticket.live()) {
+            return;
+        }
+        if res.node_id.is_some_and(|id| !self.nodes.contains_key(id)) {
+            return;
+        }
 
         let resource = match res.result {
             Ok(resource) => resource,
             Err(err) => {
-                if let Some(url) = res.resolved_url.as_ref() {
-                    let waiting_nodes = self.pending_images.remove(url).unwrap_or_default();
+                self.resource_counters.failures = self.resource_counters.failures.saturating_add(1);
+                // A transport may redirect. Ownership/cache keys remain the
+                // original requested URL; request ID identifies this completion.
+                let requested_url = self.pending_images.iter().find_map(|(url, pending)| {
+                    (pending.request_id == res.request_id).then(|| url.clone())
+                });
+                if let Some(url) = requested_url.as_ref().or(res.resolved_url.as_ref()) {
+                    let waiting_nodes = if self
+                        .pending_images
+                        .get(url)
+                        .is_some_and(|pending| pending.request_id == res.request_id)
+                    {
+                        self.pending_images
+                            .remove(url)
+                            .map(|pending| pending.waiters)
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
+                    for (id, kind) in &waiting_nodes {
+                        let Some(element) = self
+                            .nodes
+                            .get_mut(*id)
+                            .and_then(|node| node.element_data_mut())
+                        else {
+                            continue;
+                        };
+                        let layer = match kind {
+                            ImageType::Background(index) => {
+                                element.background_images.get_mut(*index)
+                            }
+                            ImageType::Mask(index) => element.mask_images.get_mut(*index),
+                            ImageType::Image => None,
+                        };
+                        if let Some(Some(layer)) = layer {
+                            layer.status = Status::Error;
+                        }
+                    }
                     #[cfg(feature = "tracing")]
                     tracing::warn!(
                         url = url.as_str(),
@@ -1325,22 +1403,14 @@ impl BaseDocument {
                 // Create the ImageData and cache it
                 let image = ImageData::Raster(RasterImageData::new(width, height, image_data));
 
-                let Some(url) = res.resolved_url.as_ref() else {
-                    return;
-                };
-
-                self.apply_loaded_image(url, image);
+                self.apply_loaded_image(image, res.request_id);
             }
             #[cfg(feature = "svg")]
             Resource::Svg(_kind, svg) => {
                 // Create the ImageData and cache it
                 let image = ImageData::Svg(svg);
 
-                let Some(url) = res.resolved_url.as_ref() else {
-                    return;
-                };
-
-                self.apply_loaded_image(url, image);
+                self.apply_loaded_image(image, res.request_id);
             }
             Resource::DocumentSrc(html) => {
                 let Some(node_id) = res.node_id else {
@@ -1349,6 +1419,18 @@ impl BaseDocument {
                 self.apply_iframe_html(node_id, res.request_id, res.resolved_url, &html);
             }
             Resource::Font(bytes, overrides) => {
+                if self.resource_counters.registered_fonts >= self.resource_limits.font_entries
+                    || bytes.len()
+                        > self
+                            .resource_limits
+                            .font_bytes
+                            .saturating_sub(self.resource_counters.registered_font_bytes)
+                {
+                    self.resource_counters.rejected =
+                        self.resource_counters.rejected.saturating_add(1);
+                    return;
+                }
+                let byte_len = bytes.len();
                 let font = Blob::new(Arc::new(bytes));
 
                 // Build a `FontInfoOverride` from the `@font-face` descriptors
@@ -1366,9 +1448,16 @@ impl BaseDocument {
 
                 // TODO: Investigate eliminating double-box
                 let mut global_font_ctx = self.font_ctx.lock().unwrap();
-                global_font_ctx
+                let registered = global_font_ctx
                     .collection
                     .register_fonts(font.clone(), Some(info_override));
+                if registered.is_empty() {
+                    self.resource_counters.failures =
+                        self.resource_counters.failures.saturating_add(1);
+                    return;
+                }
+                self.resource_counters.registered_fonts += 1;
+                self.resource_counters.registered_font_bytes += byte_len;
 
                 #[cfg(feature = "parallel-construct")]
                 {
@@ -1395,9 +1484,20 @@ impl BaseDocument {
 
     /// Cache a loaded image and apply it to all nodes waiting on it
     /// (`<img>` elements, `background-image` layers and `mask-image` layers).
-    fn apply_loaded_image(&mut self, url: &str, image: ImageData) {
+    fn apply_loaded_image(&mut self, image: ImageData, request_id: usize) {
         // Get all nodes waiting for this image
-        let waiting_nodes = self.pending_images.remove(url).unwrap_or_default();
+        let Some(url) = self
+            .pending_images
+            .iter()
+            .find_map(|(url, pending)| (pending.request_id == request_id).then(|| url.clone()))
+        else {
+            return;
+        };
+        let waiting_nodes = self
+            .pending_images
+            .remove(&url)
+            .map(|pending| pending.waiters)
+            .unwrap_or_default();
 
         #[cfg(feature = "tracing")]
         tracing::info!(
@@ -1686,11 +1786,13 @@ impl BaseDocument {
     /// Clear the focussed node
     pub fn clear_focus(&mut self) {
         if let Some(id) = self.focus_node_id {
+            let old_path = self.maybe_node_element_ancestors(Some(id));
             let shell_provider = self.shell_provider.clone();
             self.snapshot_node_and(id, ElementState::FOCUS | ElementState::FOCUSRING, |node| {
                 node.blur(shell_provider)
             });
             self.focus_node_id = None;
+            self.update_focus_within_paths(old_path, Vec::new());
         }
     }
 
@@ -1704,6 +1806,8 @@ impl BaseDocument {
         if Some(focus_node_id) == self.focus_node_id {
             return false;
         }
+        let old_path = self.maybe_node_element_ancestors(self.focus_node_id);
+        let new_path = self.maybe_node_element_ancestors(Some(focus_node_id));
 
         #[cfg(feature = "tracing")]
         tracing::info!("Focussed node {focus_node_id}");
@@ -1725,8 +1829,35 @@ impl BaseDocument {
         );
 
         self.focus_node_id = Some(focus_node_id);
+        self.update_focus_within_paths(old_path, new_path);
 
         true
+    }
+
+    /// Update just the changed DOM ancestry, preserving common ancestors and
+    /// keeping no historical focus path. Mutator reparenting supplies its old
+    /// path before the parent links change.
+    pub(crate) fn update_focus_within_paths(&mut self, old: Vec<NodeId>, new: Vec<NodeId>) {
+        let common = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
+        for (path, enabled) in [(&old, false), (&new, true)] {
+            for &id in path.iter().skip(common) {
+                if self.nodes.get(id).is_none_or(|node| !node.is_element()) {
+                    continue;
+                }
+                if self.nodes[id]
+                    .element_state()
+                    .contains(ElementState::FOCUS_WITHIN)
+                    == enabled
+                {
+                    continue;
+                }
+                self.snapshot_node_and(id, ElementState::FOCUS_WITHIN, |node| {
+                    node.element_state_mut()
+                        .set(ElementState::FOCUS_WITHIN, enabled);
+                    node.mark_ancestors_dirty();
+                });
+            }
+        }
     }
 
     pub fn active_node(&mut self) -> bool {
@@ -2462,8 +2593,10 @@ impl BaseDocument {
             let mut font_ctx = self.font_ctx.lock().unwrap();
             let layout_ctx = &mut self.layout_ctx;
             let driver = text_input.editor.driver(&mut font_ctx, layout_ctx);
-            cb(driver)
+            cb(driver);
+            text_input.refresh_display(&mut font_ctx, layout_ctx);
         }
+        self.clamp_text_input_scroll(node_id);
     }
 
     /// Recompute the scroll offset of the text input at `node_id` (if any) so that its caret
@@ -2481,6 +2614,21 @@ impl BaseDocument {
             .and_then(|el| el.text_input_data_mut())
         {
             text_input.clamp_scroll_offset(content_box_width, content_box_height);
+        }
+        if self.focus_node_id == Some(node_id) {
+            if let Some((x, y, width, height)) = node.text_input_ime_cursor_area() {
+                if let Some(input) = node
+                    .element_data()
+                    .and_then(|element| element.text_input_data())
+                {
+                    self.shell_provider.set_ime_purpose(if input.is_password() {
+                        blitz_traits::shell::ImePurpose::Password
+                    } else {
+                        blitz_traits::shell::ImePurpose::Normal
+                    });
+                }
+                self.shell_provider.set_ime_cursor_area(x, y, width, height);
+            }
         }
     }
 
@@ -3101,6 +3249,234 @@ mod hover_invalidation_tests {
         );
     }
 
+    #[test]
+    fn stylesheet_change_upgrades_pending_state_only_snapshot() {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(400, 300, 1.0, ColorScheme::Light)),
+            ..Default::default()
+        });
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html"), vec![]);
+        let body = m.create_element(qual_name!("body"), vec![]);
+        let input = m.create_element(
+            qual_name!("input"),
+            vec![
+                Attribute {
+                    name: qual_name!("type"),
+                    value: "checkbox".into(),
+                },
+                Attribute {
+                    name: qual_name!("class"),
+                    value: "target".into(),
+                },
+            ],
+        );
+        m.append_children(body, &[input]);
+        m.append_children(html, &[body]);
+        m.append_children(root, &[html]);
+        drop(m);
+        doc.resolve(0.0);
+        let initial = text_color(&doc, input);
+        doc.snapshot_node_state_only(input);
+        assert!(
+            doc.snapshots
+                .values()
+                .any(|snapshot| snapshot.attrs.is_none())
+        );
+        BaseDocument::toggle_checkbox(doc.nodes[input].element_data_mut().unwrap());
+        doc.nodes[input].mark_ancestors_dirty();
+        doc.add_user_agent_stylesheet(UserAgentStylesheet::parse(
+            ".target:checked { color: rgb(184, 0, 0); }",
+        ));
+        doc.resolve(0.0);
+        assert_ne!(text_color(&doc, input), initial);
+        assert!(doc.snapshots.is_empty());
+        assert!(!doc.nodes[input].has_snapshot());
+    }
+
+    #[test]
+    fn block_to_inline_retires_layout_children_without_losing_embedded_controls() {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(400, 300, 1.0, ColorScheme::Light)),
+            ..Default::default()
+        });
+        let style = |value: &str| Attribute {
+            name: qual_name!("style"),
+            value: value.into(),
+        };
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html"), vec![]);
+        let body = m.create_element(qual_name!("body"), vec![style("margin:0")]);
+        let panel = m.create_element(
+            qual_name!("div"),
+            vec![style("display:flex;flex-direction:column;width:300px")],
+        );
+        let block = m.create_element(qual_name!("div"), vec![style("width:80px;height:20px")]);
+        let label = m.create_element(
+            qual_name!("label"),
+            vec![style("display:block;width:70px;height:20px")],
+        );
+        let input = m.create_element(
+            qual_name!("input"),
+            vec![
+                Attribute {
+                    name: qual_name!("type"),
+                    value: "checkbox".into(),
+                },
+                style("width:14px;height:14px"),
+            ],
+        );
+        let text = m.create_text_node("label");
+        m.append_children(label, &[input, text]);
+        m.append_children(panel, &[block, label]);
+        m.append_children(body, &[panel]);
+        m.append_children(html, &[body]);
+        m.append_children(root, &[html]);
+        drop(m);
+        doc.resolve(0.0);
+        let initial = doc.nodes.len();
+        for turn in 0..200 {
+            let inline = turn % 2 == 0;
+            let mut m = doc.mutate();
+            m.set_attribute(
+                panel,
+                qual_name!("style"),
+                if inline {
+                    "width:300px"
+                } else {
+                    "display:flex;flex-direction:column;width:300px"
+                },
+            );
+            m.set_attribute(
+                label,
+                qual_name!("style"),
+                if inline {
+                    "display:inline"
+                } else {
+                    "display:block;width:70px;height:20px"
+                },
+            );
+            drop(m);
+            doc.resolve(0.0);
+            assert!(
+                doc.nodes.len() <= initial + 4,
+                "anonymous nodes grew after turn {turn}"
+            );
+            assert!(doc.nodes.contains_key(input));
+            assert!(doc.nodes[input].final_layout().size.width > 0.0);
+            if inline {
+                assert!(doc.nodes[label].layout_children.borrow().is_none());
+                assert!(
+                    doc.nodes[label]
+                        .element_data()
+                        .unwrap()
+                        .inline_layout_data
+                        .is_none()
+                );
+                assert!(!doc.nodes[label].flags.is_inline_root());
+            }
+        }
+    }
+
+    #[test]
+    fn changing_only_wrap_mode_recollects_inherited_text_layout() {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(400, 300, 1.0, ColorScheme::Light)),
+            ..Default::default()
+        });
+        doc.add_user_agent_stylesheet(UserAgentStylesheet::parse(
+            "html,body,div,p{display:block}p{margin:0}",
+        ));
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html"), vec![]);
+        let body = m.create_element(qual_name!("body"), vec![]);
+        let panel = m.create_element(qual_name!("div"), vec![]);
+        let paragraph = m.create_element(qual_name!("p"), vec![]);
+        let text = m.create_text_node("alpha beta gamma delta epsilon zeta eta theta");
+        m.append_children(paragraph, &[text]);
+        m.append_children(panel, &[paragraph]);
+        m.append_children(body, &[panel]);
+        m.append_children(html, &[body]);
+        m.append_children(root, &[html]);
+        drop(m);
+        for turn in 0..40 {
+            let wrap = turn % 2 == 1;
+            let mut m = doc.mutate();
+            m.set_attribute(
+                panel,
+                qual_name!("style"),
+                &format!(
+                    "width:120px;font:16px/20px monospace;white-space:{}",
+                    if wrap { "normal" } else { "nowrap" }
+                ),
+            );
+            drop(m);
+            doc.resolve(0.0);
+            let height = doc.nodes[paragraph].final_layout().size.height;
+            assert!(
+                if wrap {
+                    height >= 60.0
+                } else {
+                    (height - 20.0).abs() < 0.03
+                },
+                "turn={turn}, wrap={wrap}, height={height}"
+            );
+        }
+    }
+
+    #[test]
+    fn focus_within_tracks_only_live_ancestry_through_move_clear_and_removal() {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(400, 300, 1.0, ColorScheme::Light)),
+            ..Default::default()
+        });
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html"), vec![]);
+        let body = m.create_element(qual_name!("body"), vec![]);
+        let left = m.create_element(qual_name!("label"), vec![]);
+        let right = m.create_element(qual_name!("label"), vec![]);
+        let input = m.create_element(
+            qual_name!("input"),
+            vec![Attribute {
+                name: qual_name!("type"),
+                value: "checkbox".into(),
+            }],
+        );
+        m.append_children(left, &[input]);
+        m.append_children(body, &[left, right]);
+        m.append_children(html, &[body]);
+        m.append_children(root, &[html]);
+        drop(m);
+        doc.resolve(0.0);
+        let within = |doc: &BaseDocument, id| {
+            doc.nodes[id]
+                .element_state()
+                .contains(ElementState::FOCUS_WITHIN)
+        };
+        assert!(doc.set_focus_to(input));
+        assert!(within(&doc, input) && within(&doc, left) && within(&doc, body));
+        assert!(!within(&doc, right));
+        assert!(!doc.set_focus_to(input));
+        doc.mutate().append_children(right, &[input]);
+        assert_eq!(doc.get_focussed_node_id(), Some(input));
+        assert!(!within(&doc, left));
+        assert!(within(&doc, right) && within(&doc, body) && within(&doc, input));
+        doc.resolve(0.0);
+        doc.clear_focus();
+        assert!(!within(&doc, right) && !within(&doc, body) && !within(&doc, input));
+        doc.set_focus_to(input);
+        doc.mutate().remove_and_drop_node(right);
+        // The public getter falls back to body when no control has focus.
+        assert_eq!(doc.focus_node_id, None);
+        assert!(!within(&doc, body));
+        assert!(!doc.nodes.contains_key(input));
+        doc.resolve(0.0);
+    }
+
     /// Toggling a checkbox must invalidate `:checked`-dependent styles.
     #[test]
     fn checkbox_toggle_updates_checked_styles() {
@@ -3343,6 +3719,7 @@ mod font_face_override_tests {
         // valid font payload — its internal `name` table is irrelevant to
         // the assertion; what matters is whether the override wins.
         let response = ResourceLoadResponse {
+            ticket: None,
             request_id: 0,
             node_id: None,
             resolved_url: Some(String::from("test://aliased-family")),

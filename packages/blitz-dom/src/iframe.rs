@@ -1,7 +1,7 @@
 //! Loading of `<iframe>` elements into sub-documents.
 
+use crate::resource_queue::DocumentSender;
 use std::sync::Arc;
-use std::sync::mpsc::Sender;
 
 use blitz_traits::navigation::{NavigationOptions, NavigationProvider};
 use blitz_traits::net::{AbortController, AbortSignal, Url};
@@ -31,7 +31,7 @@ pub(crate) struct IframeLoad {
 /// document, which reloads the iframe's sub-document with the new URL.
 struct IframeNavigationProvider {
     node_id: NodeId,
-    tx: Sender<DocumentEvent>,
+    tx: DocumentSender,
     shell_provider: Arc<dyn ShellProvider>,
 }
 
@@ -124,13 +124,15 @@ impl BaseDocument {
     /// Start fetching HTML for an iframe from `url`. The parsed document is
     /// attached when the response arrives (via [`DocumentEvent::ResourceLoad`]).
     pub(crate) fn start_iframe_load(&mut self, node_id: NodeId, url: Url) {
-        let handler = ResourceHandler::new(
+        let Some(handler) = ResourceHandler::new(
             self.tx.clone(),
             self.id(),
             Some(node_id),
             self.shell_provider.clone(),
             DocumentSrcHandler,
-        );
+        ) else {
+            return;
+        };
         let signal = self.new_iframe_generation(node_id, Some(handler.request_id()));
         self.net_provider.fetch(
             self.id(),

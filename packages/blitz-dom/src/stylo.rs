@@ -63,6 +63,22 @@ impl crate::document::BaseDocument {
     pub fn resolve_stylist(&mut self, now: f64) {
         style::thread_state::enter(ThreadState::LAYOUT);
 
+        if self.stylist.stylesheets_have_changed() {
+            // Stylesheet invalidation inspects snapshot classes/ids even when
+            // only element state changed. Stylo's Servo snapshot assumes attrs
+            // exist on that path. Upgrade only pending state-only snapshots;
+            // attribute mutations already captured their original attributes.
+            let state_only: Vec<_> = self
+                .snapshots
+                .iter()
+                .filter(|(_, snapshot)| snapshot.attrs.is_none())
+                .map(|(opaque, _)| NodeId::from_u64(opaque.id() as u64))
+                .collect();
+            for id in state_only {
+                self.snapshot_node(id);
+            }
+        }
+
         let guard = &self.guard;
         let guards = StylesheetGuards {
             author: &guard.read(),
@@ -474,7 +490,9 @@ impl selectors::Element for BlitzNode<'_> {
             NonTSPseudoClass::Disabled => self.element_state().contains(ElementState::DISABLED),
             NonTSPseudoClass::Enabled => self.element_state().contains(ElementState::ENABLED),
             NonTSPseudoClass::Focus => self.element_state().contains(ElementState::FOCUS),
-            NonTSPseudoClass::FocusWithin => false,
+            NonTSPseudoClass::FocusWithin => {
+                self.element_state().contains(ElementState::FOCUS_WITHIN)
+            }
             NonTSPseudoClass::FocusVisible => false,
             NonTSPseudoClass::Fullscreen => false,
             NonTSPseudoClass::Hover => self.element_state().contains(ElementState::HOVER),

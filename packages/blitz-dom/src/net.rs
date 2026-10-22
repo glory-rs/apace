@@ -1,10 +1,6 @@
 use blitz_traits::node_id::NodeId;
 use selectors::context::QuirksMode;
-use std::sync::atomic::Ordering as Ao;
-use std::{
-    io::Cursor,
-    sync::{Arc, atomic::AtomicUsize, mpsc::Sender},
-};
+use std::{io::Cursor, sync::Arc};
 use style::{
     font_face::{FontFaceSourceFormat, FontFaceSourceFormatKeyword, FontStyleRange, Source},
     media_queries::MediaList,
@@ -19,8 +15,10 @@ use style::{
     values::{CssUrl, SourceLocation},
 };
 
-use blitz_traits::net::{AbortSignal, Bytes, NetHandler, NetProvider, Request};
+use crate::resource_queue::{DocumentSender, Ticket};
+use blitz_traits::net::{AbortSignal, Bytes, NetHandler, NetProvider, NetReady, Request};
 use blitz_traits::shell::ShellProvider;
+use std::task::Poll;
 
 use url::Url;
 
@@ -68,26 +66,50 @@ pub enum Resource {
     None,
 }
 
-pub(crate) struct ResourceHandler<T: Send + Sync + 'static> {
+pub(crate) trait Payload: Send + Sync + 'static {
+    fn weight(&self, bytes: &Bytes) -> Result<usize, String> {
+        Ok(bytes.len())
+    }
+}
+pub(crate) struct ResourceHandler<T: Payload> {
+    ticket: Ticket,
     doc_id: usize,
     request_id: usize,
     node_id: Option<NodeId>,
-    tx: Sender<DocumentEvent>,
+    tx: DocumentSender,
     shell_provider: Arc<dyn ShellProvider>,
     data: T,
 }
 
-impl<T: Send + Sync + 'static> ResourceHandler<T> {
+impl<T: Payload> ResourceHandler<T> {
     pub(crate) fn new(
-        tx: Sender<DocumentEvent>,
+        tx: DocumentSender,
         doc_id: usize,
         node_id: Option<NodeId>,
         shell_provider: Arc<dyn ShellProvider>,
         data: T,
+    ) -> Option<Self> {
+        let ticket = tx.pool.register()?;
+        Some(Self::with_ticket(
+            tx,
+            doc_id,
+            node_id,
+            shell_provider,
+            data,
+            ticket,
+        ))
+    }
+    fn with_ticket(
+        tx: DocumentSender,
+        doc_id: usize,
+        node_id: Option<NodeId>,
+        shell_provider: Arc<dyn ShellProvider>,
+        data: T,
+        ticket: Ticket,
     ) -> Self {
-        static REQUEST_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
         Self {
-            request_id: REQUEST_ID_COUNTER.fetch_add(1, Ao::Relaxed),
+            request_id: ticket.id(),
+            ticket,
             doc_id,
             node_id,
             tx,
@@ -97,31 +119,101 @@ impl<T: Send + Sync + 'static> ResourceHandler<T> {
     }
 
     pub(crate) fn boxed(
-        tx: Sender<DocumentEvent>,
+        tx: DocumentSender,
         doc_id: usize,
         node_id: Option<NodeId>,
         shell_provider: Arc<dyn ShellProvider>,
         data: T,
-    ) -> Box<dyn NetHandler>
+    ) -> Option<Box<dyn NetHandler>>
     where
         ResourceHandler<T>: NetHandler,
     {
-        Box::new(Self::new(tx, doc_id, node_id, shell_provider, data)) as _
+        Some(Box::new(Self::new(tx, doc_id, node_id, shell_provider, data)?) as _)
     }
 
     pub(crate) fn request_id(&self) -> usize {
         self.request_id
     }
 
-    fn respond(&self, resolved_url: String, result: Result<Resource, String>) {
+    fn cost(&self, bytes: &Bytes) -> Result<usize, String> {
+        if !self.ticket.live() {
+            return Err("retired resource".into());
+        }
+        if bytes.len() > self.ticket.limits().encoded_bytes {
+            self.ticket.reject();
+            return Err("encoded resource budget".into());
+        }
+        self.data.weight(bytes)
+    }
+    fn prepare_bytes(&self, bytes: &Bytes) -> NetReady<'static> {
+        match self.cost(bytes) {
+            Ok(bytes) => Box::pin(self.ticket.wait(bytes)),
+            Err(error) => Box::pin(std::future::ready(Err(error))),
+        }
+    }
+    fn admit(&self, bytes: &Bytes) -> Result<(), String> {
+        let bytes = self.cost(bytes)?;
+        match self.ticket.reserve(bytes, None) {
+            Poll::Ready(result) => result,
+            Poll::Pending => {
+                self.ticket.reject();
+                Err("resource completion capacity; await prepare".into())
+            }
+        }
+    }
+    fn respond(&self, mut resolved_url: String, mut result: Result<Resource, String>) {
+        if resolved_url.len() > 4096 {
+            cut(&mut resolved_url, 4096);
+            result = Err("resource response URL budget".into());
+        }
+        if let Err(error) = &mut result {
+            cut(error, 512);
+        }
+        // CSS/SVG charge their encoded input; raster/font/HTML charge the actual
+        // retained payload. Opaque AST/decoder scratch are not an RSS budget.
+        let weight = match &result {
+            Ok(Resource::Image(_, _, _, bytes)) => Some(bytes.len()),
+            Ok(Resource::Font(bytes, overrides)) => Some(
+                bytes
+                    .len()
+                    .saturating_add(overrides.family_name.as_ref().map_or(0, String::len)),
+            ),
+            Ok(Resource::DocumentSrc(html)) => Some(html.len()),
+            Ok(Resource::None) | Err(_) => Some(0),
+            _ => None,
+        };
+        if let Some(weight) = weight {
+            if !matches!(self.ticket.reserve(weight, None), Poll::Ready(Ok(()))) {
+                result = Err("resource completion byte budget".into());
+                let _ = self.ticket.reserve(0, None);
+            }
+        }
+        let Some(notify) = self.ticket.publish() else {
+            return;
+        };
         let response = ResourceLoadResponse {
+            ticket: Some(self.ticket.clone()),
             request_id: self.request_id,
             node_id: self.node_id,
             resolved_url: Some(resolved_url),
             result,
         };
         let _ = self.tx.send(DocumentEvent::ResourceLoad(response));
-        self.shell_provider.request_redraw();
+        if notify {
+            self.shell_provider.request_redraw();
+        }
+    }
+}
+
+fn cut(text: &mut String, limit: usize) {
+    let mut end = text.len().min(limit);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    // Replace rather than truncate: large original capacities must not survive
+    // in a bounded diagnostic. Request count bounds this fixed metadata too.
+    if text.len() > end || text.capacity() > limit {
+        *text = text[..end].to_owned();
     }
 }
 
@@ -131,19 +223,36 @@ pub struct ResourceLoadResponse {
     pub node_id: Option<NodeId>,
     pub resolved_url: Option<String>,
     pub result: Result<Resource, String>,
+    // Rust drops struct fields in declaration order. Drop the actual resource
+    // before refunding its bytes/waking producers (also on receiver close).
+    pub(crate) ticket: Option<Ticket>,
 }
 
 pub struct StylesheetHandler {
-    pub source_url: Url,
     pub guard: SharedRwLock,
     pub net_provider: Arc<dyn NetProvider>,
     pub abort_signal: Option<AbortSignal>,
 }
+impl Payload for StylesheetHandler {}
 
 impl NetHandler for ResourceHandler<StylesheetHandler> {
+    fn prepare<'a>(&'a mut self, _url: &'a str, bytes: &'a Bytes) -> NetReady<'a> {
+        self.prepare_bytes(bytes)
+    }
+    fn error(self: Box<Self>, resolved_url: String, error: String) {
+        self.respond(resolved_url, Err(error));
+    }
+
     fn bytes(self: Box<Self>, resolved_url: String, bytes: Bytes) {
+        if let Err(error) = self.admit(&bytes) {
+            return self.respond(resolved_url, Err(error));
+        }
         let Ok(css) = std::str::from_utf8(&bytes) else {
             return self.respond(resolved_url, Err(String::from("Invalid UTF8")));
+        };
+
+        let Ok(source_url) = Url::parse(&resolved_url) else {
+            return self.respond(resolved_url, Err(String::from("Invalid stylesheet URL")));
         };
 
         // NOTE(Nico): I don't *think* external stylesheets should have HTML entities escaped
@@ -151,7 +260,7 @@ impl NetHandler for ResourceHandler<StylesheetHandler> {
 
         let sheet = Stylesheet::from_str(
             css,
-            self.data.source_url.clone().into(),
+            source_url.into(),
             Origin::Author,
             ServoArc::new(self.data.guard.wrap(MediaList::empty())),
             self.data.guard.clone(),
@@ -183,7 +292,7 @@ const MAX_IMPORT_DEPTH: usize = 16;
 
 #[derive(Clone)]
 pub(crate) struct StylesheetLoader {
-    pub(crate) tx: Sender<DocumentEvent>,
+    pub(crate) tx: DocumentSender,
     pub(crate) doc_id: usize,
     pub(crate) net_provider: Arc<dyn NetProvider>,
     pub(crate) shell_provider: Arc<dyn ShellProvider>,
@@ -202,7 +311,11 @@ impl ServoStylesheetLoader for StylesheetLoader {
         supports: Option<ImportSupportsCondition>,
         layer: ImportLayer,
     ) -> ServoArc<Locked<ImportRule>> {
-        if self.import_depth >= MAX_IMPORT_DEPTH || !supports.as_ref().is_none_or(|s| s.enabled) {
+        let ticket = self.tx.pool.register();
+        if self.import_depth >= MAX_IMPORT_DEPTH
+            || !supports.as_ref().is_none_or(|s| s.enabled)
+            || ticket.is_none()
+        {
             return ServoArc::new(lock.wrap(ImportRule {
                 url,
                 stylesheet: ImportSheet::new_refused(),
@@ -225,13 +338,12 @@ impl ServoStylesheetLoader for StylesheetLoader {
         self.net_provider.fetch(
             self.doc_id,
             stamped_request(url.as_ref().clone(), self.abort_signal.as_ref()),
-            ResourceHandler::boxed(
+            Box::new(ResourceHandler::with_ticket(
                 self.tx.clone(),
                 self.doc_id,
                 None, // node_id
                 self.shell_provider.clone(),
                 NestedStylesheetHandler {
-                    url: url.clone(),
                     loader: StylesheetLoader {
                         import_depth: self.import_depth + 1,
                         ..self.clone()
@@ -241,7 +353,8 @@ impl ServoStylesheetLoader for StylesheetLoader {
                     import_rule: import.clone(),
                     net_provider: self.net_provider.clone(),
                 },
-            ),
+                ticket.expect("admitted stylesheet"),
+            )),
         );
 
         import
@@ -251,16 +364,30 @@ impl ServoStylesheetLoader for StylesheetLoader {
 struct NestedStylesheetHandler {
     loader: StylesheetLoader,
     lock: SharedRwLock,
-    url: ServoArc<Url>,
     media: ServoArc<Locked<MediaList>>,
     import_rule: ServoArc<Locked<ImportRule>>,
     net_provider: Arc<dyn NetProvider>,
 }
 
+impl Payload for NestedStylesheetHandler {}
 impl NetHandler for ResourceHandler<NestedStylesheetHandler> {
+    fn prepare<'a>(&'a mut self, _url: &'a str, bytes: &'a Bytes) -> NetReady<'a> {
+        self.prepare_bytes(bytes)
+    }
+    fn error(self: Box<Self>, resolved_url: String, error: String) {
+        self.respond(resolved_url, Err(error));
+    }
+
     fn bytes(self: Box<Self>, resolved_url: String, bytes: Bytes) {
+        if let Err(error) = self.admit(&bytes) {
+            return self.respond(resolved_url, Err(error));
+        }
         let Ok(css) = std::str::from_utf8(&bytes) else {
             return self.respond(resolved_url, Err(String::from("Invalid UTF8")));
+        };
+
+        let Ok(source_url) = Url::parse(&resolved_url) else {
+            return self.respond(resolved_url, Err(String::from("Invalid stylesheet URL")));
         };
 
         // NOTE(Nico): I don't *think* external stylesheets should have HTML entities escaped
@@ -268,7 +395,7 @@ impl NetHandler for ResourceHandler<NestedStylesheetHandler> {
 
         let sheet = ServoArc::new(Stylesheet::from_str(
             css,
-            UrlExtraData(self.data.url.clone()),
+            UrlExtraData(ServoArc::new(source_url)),
             Origin::Author,
             self.data.media.clone(),
             self.data.lock.clone(),
@@ -299,8 +426,26 @@ struct FontFaceHandler {
     format: FontFaceSourceFormatKeyword,
     overrides: FontFaceOverrides,
 }
+impl Payload for FontFaceHandler {
+    fn weight(&self, bytes: &Bytes) -> Result<usize, String> {
+        bytes
+            .len()
+            .checked_add(self.overrides.family_name.as_ref().map_or(0, String::len))
+            .ok_or_else(|| "font size overflow".into())
+    }
+}
 impl NetHandler for ResourceHandler<FontFaceHandler> {
+    fn prepare<'a>(&'a mut self, _url: &'a str, bytes: &'a Bytes) -> NetReady<'a> {
+        self.prepare_bytes(bytes)
+    }
+    fn error(self: Box<Self>, resolved_url: String, error: String) {
+        self.respond(resolved_url, Err(error));
+    }
+
     fn bytes(mut self: Box<Self>, resolved_url: String, bytes: Bytes) {
+        if let Err(error) = self.admit(&bytes) {
+            return self.respond(resolved_url, Err(error));
+        }
         let result = self.data.parse(bytes);
         self.respond(resolved_url, result)
     }
@@ -379,7 +524,7 @@ impl FontFaceHandler {
 /// Fetch the fonts of all `@font-face` rules in `sheet`
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn fetch_font_face(
-    tx: Sender<DocumentEvent>,
+    tx: DocumentSender,
     doc_id: usize,
     node_id: Option<NodeId>,
     sheet: &Stylesheet,
@@ -404,7 +549,7 @@ pub(crate) fn fetch_font_face(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn fetch_font_face_rules<'a>(
     rules: impl Iterator<Item = &'a CssRule>,
-    tx: Sender<DocumentEvent>,
+    tx: DocumentSender,
     doc_id: usize,
     node_id: Option<NodeId>,
     network_provider: &Arc<dyn NetProvider>,
@@ -503,17 +648,16 @@ pub(crate) fn fetch_font_face_rules<'a>(
                 });
 
             if let Some((url, format)) = preferred_source {
-                network_provider.fetch(
+                let Some(handler) = ResourceHandler::boxed(
+                    tx.clone(),
                     doc_id,
-                    stamped_request(url, abort_signal),
-                    ResourceHandler::boxed(
-                        tx.clone(),
-                        doc_id,
-                        node_id,
-                        shell_provider.clone(),
-                        FontFaceHandler { format, overrides },
-                    ),
-                );
+                    node_id,
+                    shell_provider.clone(),
+                    FontFaceHandler { format, overrides },
+                ) else {
+                    return;
+                };
+                network_provider.fetch(doc_id, stamped_request(url, abort_signal), handler);
             }
         })
 }
@@ -544,8 +688,19 @@ fn stylo_to_fontique_style(style: &FontStyleRange) -> parley::fontique::FontStyl
 /// Handles HTML fetched for an `<iframe>` element's `src`
 pub(crate) struct DocumentSrcHandler;
 
+impl Payload for DocumentSrcHandler {}
 impl NetHandler for ResourceHandler<DocumentSrcHandler> {
+    fn prepare<'a>(&'a mut self, _url: &'a str, bytes: &'a Bytes) -> NetReady<'a> {
+        self.prepare_bytes(bytes)
+    }
+    fn error(self: Box<Self>, resolved_url: String, error: String) {
+        self.respond(resolved_url, Err(error));
+    }
+
     fn bytes(self: Box<Self>, resolved_url: String, bytes: Bytes) {
+        if let Err(error) = self.admit(&bytes) {
+            return self.respond(resolved_url, Err(error));
+        }
         let html = String::from_utf8_lossy(&bytes).into_owned();
         self.respond(resolved_url, Ok(Resource::DocumentSrc(html)));
     }
@@ -553,15 +708,63 @@ impl NetHandler for ResourceHandler<DocumentSrcHandler> {
 
 pub struct ImageHandler {
     kind: ImageType,
+    limits: crate::ResourceLimits,
 }
 impl ImageHandler {
+    pub fn with_limits(kind: ImageType, limits: crate::ResourceLimits) -> Self {
+        Self { kind, limits }
+    }
     pub fn new(kind: ImageType) -> Self {
-        Self { kind }
+        Self {
+            kind,
+            limits: crate::ResourceLimits::default(),
+        }
     }
 }
 
+impl Payload for ImageHandler {
+    fn weight(&self, bytes: &Bytes) -> Result<usize, String> {
+        match image::ImageReader::new(Cursor::new(bytes))
+            .with_guessed_format()
+            .map_err(|e| e.to_string())?
+            .into_dimensions()
+        {
+            Ok((w, h)) => {
+                let bytes = u128::from(w) * u128::from(h) * 4;
+                if w > self.limits.image_dimension
+                    || h > self.limits.image_dimension
+                    || bytes > u128::from(self.limits.image_decoded_bytes)
+                {
+                    return Err("decoded image exceeds resource limits".into());
+                }
+                usize::try_from(bytes).map_err(|_| "image size overflow".into())
+            }
+            Err(error) => {
+                #[cfg(feature = "svg")]
+                {
+                    let _ = error;
+                    Ok(bytes.len())
+                }
+                #[cfg(not(feature = "svg"))]
+                {
+                    Err(error.to_string())
+                }
+            }
+        }
+    }
+}
 impl NetHandler for ResourceHandler<ImageHandler> {
+    fn prepare<'a>(&'a mut self, _url: &'a str, bytes: &'a Bytes) -> NetReady<'a> {
+        self.prepare_bytes(bytes)
+    }
+    fn error(self: Box<Self>, resolved_url: String, error: String) {
+        self.respond(resolved_url, Err(error));
+    }
+
     fn bytes(self: Box<Self>, resolved_url: String, bytes: Bytes) {
+        if let Err(error) = self.admit(&bytes) {
+            return self.respond(resolved_url, Err(error));
+        }
         let result = self.data.parse(bytes);
         self.respond(resolved_url, result)
     }
@@ -569,6 +772,21 @@ impl NetHandler for ResourceHandler<ImageHandler> {
 
 impl ImageHandler {
     fn parse(&self, bytes: Bytes) -> Result<Resource, String> {
+        // Validate dimensions before decoding or expanding RGB into RGBA.
+        // A small encoded body may otherwise allocate an enormous image.
+        let dimensions = image::ImageReader::new(Cursor::new(&bytes))
+            .with_guessed_format()
+            .map_err(|error| error.to_string())?
+            .into_dimensions();
+        if let Ok((width, height)) = dimensions {
+            if width > self.limits.image_dimension
+                || height > self.limits.image_dimension
+                || u128::from(width) * u128::from(height) * 4
+                    > u128::from(self.limits.image_decoded_bytes)
+            {
+                return Err("decoded image exceeds resource limits".into());
+            }
+        }
         let image_err = match image::ImageReader::new(Cursor::new(&bytes))
             .with_guessed_format()
             .expect("IO errors impossible with Cursor")
@@ -611,6 +829,31 @@ mod tests {
     use super::*;
     use parley::fontique::FontStyle as Fq;
     use style::values::specified::Angle;
+
+    #[test]
+    fn response_diagnostics_are_bounded_utf8_and_do_not_retain_large_capacities() {
+        let doc = crate::BaseDocument::new(Default::default());
+        let handler = ResourceHandler::new(
+            doc.tx.clone(),
+            doc.id(),
+            None,
+            doc.shell_provider.clone(),
+            ImageHandler::new(ImageType::Image),
+        )
+        .unwrap();
+        Box::new(handler).error("🙂".repeat(10000), "🙂".repeat(10000));
+        let DocumentEvent::ResourceLoad(response) = doc.rx.as_ref().unwrap().try_recv().unwrap()
+        else {
+            panic!("resource")
+        };
+        let url = response.resolved_url.as_ref().unwrap();
+        assert!(url.len() <= 4096 && url.capacity() <= 4096);
+        let error = response.result.as_ref().unwrap_err();
+        assert!(error.len() <= 512 && error.capacity() <= 512);
+        assert_eq!(doc.resource_stats().requests, 1);
+        drop(response);
+        assert_eq!(doc.resource_stats().requests, 0);
+    }
 
     fn oblique(min_deg: f32, max_deg: f32) -> FontStyleRange {
         FontStyleRange::Oblique(Angle::from_degrees(min_deg), Angle::from_degrees(max_deg))

@@ -728,13 +728,19 @@ impl Node {
             .and_then(|elem| elem.text_input_data())
             .is_some()
         {
+            let password = self
+                .element_data()
+                .and_then(|element| element.text_input_data())
+                .is_some_and(|input| input.is_password());
+            shell_provider.set_ime_purpose(if password {
+                blitz_traits::shell::ImePurpose::Password
+            } else {
+                blitz_traits::shell::ImePurpose::Normal
+            });
             shell_provider.set_ime_enabled(true);
-            let mut pos = self.absolute_position(0.0, 0.0);
-            pos.x += self.final_layout().content_box_x();
-            pos.y += self.final_layout().content_box_y();
-            let width = self.final_layout().content_box_width();
-            let height = self.final_layout().content_box_height();
-            shell_provider.set_ime_cursor_area(pos.x, pos.y, width, height);
+            if let Some((x, y, width, height)) = self.text_input_ime_cursor_area() {
+                shell_provider.set_ime_cursor_area(x, y, width, height);
+            }
         }
     }
 
@@ -811,6 +817,34 @@ impl Node {
         self.element_data_mut().and_then(|el| el.sub_doc_data_mut())
     }
 
+    pub(crate) fn text_input_ime_cursor_area(&self) -> Option<(f32, f32, f32, f32)> {
+        let input = self.element_data()?.text_input_data()?;
+        let scale = f64::from(input.display_editor().try_layout()?.scale());
+        let rect = input.ime_cursor_area();
+        let pos = self.absolute_position(0.0, 0.0);
+        let x = pos.x + self.final_layout().content_box_x() + (rect.x0 / scale) as f32
+            - if input.is_multiline {
+                0.0
+            } else {
+                input.scroll_offset
+            };
+        let y = pos.y
+            + self.final_layout().content_box_y()
+            + self.text_input_v_centering_offset(scale) as f32
+            + (rect.y0 / scale) as f32
+            - if input.is_multiline {
+                input.scroll_offset
+            } else {
+                0.0
+            };
+        Some((
+            x,
+            y,
+            ((rect.x1 - rect.x0) / scale) as f32,
+            ((rect.y1 - rect.y0) / scale) as f32,
+        ))
+    }
+
     pub fn text_input_v_centering_offset(&self, scale: f64) -> f64 {
         // For single-line inputs, add an offset to vertically center the text input layout
         // within the content box of it's node.
@@ -821,7 +855,8 @@ impl Node {
         {
             if !input_data.is_multiline {
                 let content_box_height = self.final_layout().content_box_height();
-                let input_height = input_data.editor.try_layout().unwrap().height() / scale as f32;
+                let input_height =
+                    input_data.display_editor().try_layout().unwrap().height() / scale as f32;
                 let y_offset = ((content_box_height - input_height) / 2.0).max(0.0);
 
                 return y_offset as f64;

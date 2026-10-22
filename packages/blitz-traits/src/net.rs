@@ -12,12 +12,21 @@ use std::sync::{
 };
 use std::{ops::Deref, path::PathBuf};
 pub use url::Url;
+pub type NetReady<'a> =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>> + Send + 'a>>;
 
 /// A type that fetches resources for a Document.
 ///
 /// This may be over the network via http(s), via the filesystem, or some other method.
 pub trait NetProvider: Send + Sync + 'static {
     fn fetch(&self, doc_id: usize, request: Request, handler: Box<dyn NetHandler>);
+
+    /// Cancel a resource whose last document consumer disappeared. Providers
+    /// must revoke late publication as well as stop I/O where possible.
+    fn cancel(&self, _doc_id: usize, _url: &str) {}
+
+    /// Permanently release all requests for this document.
+    fn close(&self, _doc_id: usize) {}
 
     /// Whether this provider is a no-op (e.g. `DummyNetProvider`) that will never
     /// deliver resources. When true, callers must NOT register resources as
@@ -32,7 +41,17 @@ pub trait NetProvider: Send + Sync + 'static {
 /// A type that parses raw bytes from a network request into a Data and then calls
 /// the NetCallack with the result.
 pub trait NetHandler: Send + Sync + 'static {
+    /// Await before parsing/decoding. Drop this future when cancelling I/O.
+    fn prepare<'a>(&'a mut self, _url: &'a str, _bytes: &'a Bytes) -> NetReady<'a> {
+        Box::pin(std::future::ready(Ok(())))
+    }
     fn bytes(self: Box<Self>, resolved_url: String, bytes: Bytes);
+
+    /// Complete a failed request. The document implementation clears blocking
+    /// state on failure too; never leave a failed stylesheet pending forever.
+    fn error(self: Box<Self>, resolved_url: String, _error: String) {
+        self.bytes(resolved_url, Bytes::new());
+    }
 }
 
 /// A callback which gets called every time a network request completes

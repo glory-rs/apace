@@ -6,6 +6,7 @@ use blitz_traits::{
 use keyboard_types::{Key, Modifiers, NamedKey};
 use parley::{ContentWidths, FontContext, LayoutContext};
 
+use super::password::Password;
 use crate::util::ACTION_MOD;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -64,6 +65,9 @@ pub enum GeneratedTextInputEvent {
 pub struct TextInputData {
     /// A parley TextEditor instance
     pub editor: Box<parley::PlainEditor<TextBrush>>,
+    password: Option<Password>,
+    width: Option<f32>,
+    alignment: parley::layout::Alignment,
     /// Whether the input is a singleline or multiline input
     pub is_multiline: bool,
     /// The scroll offset of the text content within the input, in CSS (unscaled) pixels.
@@ -77,7 +81,9 @@ pub struct TextInputData {
 // FIXME: Implement Clone for PlainEditor
 impl Clone for TextInputData {
     fn clone(&self) -> Self {
-        TextInputData::new(self.is_multiline)
+        let mut data = TextInputData::new(self.is_multiline);
+        data.set_password(self.is_password());
+        data
     }
 }
 
@@ -86,6 +92,9 @@ impl TextInputData {
         let editor = Box::new(parley::PlainEditor::new(16.0));
         Self {
             editor,
+            password: None,
+            width: None,
+            alignment: parley::layout::Alignment::Start,
             is_multiline,
             scroll_offset: 0.0,
         }
@@ -100,7 +109,156 @@ impl TextInputData {
         if self.editor.text() != text {
             self.editor.set_text(text);
             self.editor.driver(font_ctx, layout_ctx).refresh_layout();
+            self.refresh_display(font_ctx, layout_ctx);
         }
+    }
+
+    pub fn is_password(&self) -> bool {
+        self.password.is_some()
+    }
+
+    pub(crate) fn set_password(&mut self, value: bool) {
+        if value && self.password.is_none() {
+            let mut password = Password::new(self.editor.get_font_size());
+            password.editor.set_width(self.width);
+            password.editor.set_alignment(self.alignment);
+            self.password = Some(password);
+        } else if !value {
+            self.password = None;
+        }
+    }
+
+    pub(crate) fn set_width(&mut self, width: Option<f32>) {
+        self.width = width;
+        self.editor.set_width(width);
+        if let Some(password) = &mut self.password {
+            password.editor.set_width(width);
+        }
+    }
+
+    pub(crate) fn set_alignment(&mut self, alignment: parley::layout::Alignment) {
+        self.alignment = alignment;
+        self.editor.set_alignment(alignment);
+        if let Some(password) = &mut self.password {
+            password.editor.set_alignment(alignment);
+        }
+    }
+
+    /// The only layout used for visual geometry. Editable bytes/IME offsets
+    /// deliberately remain available through the raw editor above.
+    pub fn display_editor(&self) -> &parley::PlainEditor<TextBrush> {
+        self.password
+            .as_ref()
+            .map_or(&self.editor, |password| &password.editor)
+    }
+
+    pub fn cursor_geometry(&self, size: f32) -> Option<parley::BoundingBox> {
+        self.editor
+            .is_cursor_visible()
+            .then(|| {
+                let display = self.display_editor();
+                display
+                    .try_layout()
+                    .map(|layout| display.raw_selection().focus().geometry(layout, size))
+            })
+            .flatten()
+    }
+
+    pub fn ime_cursor_area(&self) -> parley::BoundingBox {
+        let display = self.display_editor();
+        if let (Some(password), Some(compose), Some(layout)) = (
+            &self.password,
+            self.editor.raw_compose(),
+            display.try_layout(),
+        ) {
+            use parley::editing::{Cursor, Selection};
+            use parley::layout::Affinity;
+            let selection = Selection::new(
+                Cursor::from_byte_index(
+                    layout,
+                    password.display_index(compose.start, false),
+                    Affinity::Downstream,
+                ),
+                Cursor::from_byte_index(
+                    layout,
+                    password.display_index(compose.end, true),
+                    Affinity::Upstream,
+                ),
+            );
+            let mut bounds = display.ime_cursor_area();
+            for (rect, _) in selection.geometry(layout) {
+                bounds.x0 = bounds.x0.min(rect.x0);
+                bounds.y0 = bounds.y0.min(rect.y0);
+                bounds.x1 = bounds.x1.max(rect.x1);
+                bounds.y1 = bounds.y1.max(rect.y1);
+            }
+            bounds
+        } else {
+            display.ime_cursor_area()
+        }
+    }
+
+    pub(crate) fn refresh_display(
+        &mut self,
+        fonts: &mut FontContext,
+        layouts: &mut LayoutContext<TextBrush>,
+    ) {
+        if let Some(password) = &mut self.password {
+            password.sync(&self.editor, fonts, layouts);
+        }
+    }
+
+    pub(crate) fn refresh_display_config(
+        &mut self,
+        fonts: &mut FontContext,
+        layouts: &mut LayoutContext<TextBrush>,
+    ) {
+        if let Some(password) = &mut self.password {
+            password.invalidate_config();
+            password.sync(&self.editor, fonts, layouts);
+        }
+    }
+
+    /// Perform selection in display coordinates, then map the resulting UTF-8
+    /// bullet indices back to raw extended-grapheme boundaries.
+    pub(crate) fn point_selection(
+        &mut self,
+        fonts: &mut FontContext,
+        layouts: &mut LayoutContext<TextBrush>,
+        apply: impl FnOnce(&mut parley::PlainEditorDriver<TextBrush>),
+    ) {
+        self.refresh_display(fonts, layouts);
+        if let Some(password) = &mut self.password {
+            apply(&mut password.editor.driver(fonts, layouts));
+            let selection = password.editor.raw_selection();
+            let anchor = password.raw_index(selection.anchor().index());
+            let focus = password.raw_index(selection.focus().index());
+            self.editor
+                .driver(fonts, layouts)
+                .select_byte_range(anchor, focus);
+            password.sync_selection(&self.editor, fonts, layouts);
+        } else {
+            apply(&mut self.editor.driver(fonts, layouts));
+        }
+    }
+
+    fn password_delete(
+        &mut self,
+        fonts: &mut FontContext,
+        layouts: &mut LayoutContext<TextBrush>,
+        backwards: bool,
+        whole: bool,
+    ) {
+        self.refresh_display(fonts, layouts);
+        let range =
+            self.password
+                .as_ref()
+                .expect("password")
+                .deletion(&self.editor, backwards, whole);
+        let mut driver = self.editor.driver(fonts, layouts);
+        driver.select_byte_range(range.start, range.end);
+        driver.delete_selection();
+        self.refresh_display(fonts, layouts);
     }
 
     /// Recompute [`Self::scroll_offset`] so that the caret stays visible within the input's
@@ -109,7 +267,7 @@ impl TextInputData {
     /// `content_box_width` and `content_box_height` are the dimensions of the input's content
     /// box in CSS (unscaled) pixels.
     pub fn clamp_scroll_offset(&mut self, content_box_width: f32, content_box_height: f32) {
-        let Some(layout) = self.editor.try_layout() else {
+        let Some(layout) = self.display_editor().try_layout() else {
             return;
         };
         // Parley lays out at the editor's scale, so its geometry is in scaled (device) pixels.
@@ -117,7 +275,7 @@ impl TextInputData {
         let scale = layout.scale();
 
         // The caret geometry relative to the start of the text content.
-        let Some(caret) = self.editor.cursor_geometry(1.5) else {
+        let Some(caret) = self.cursor_geometry(1.5) else {
             return;
         };
 
@@ -162,7 +320,7 @@ impl TextInputData {
     /// `content_box_width` and `content_box_height` are the dimensions of the input's content
     /// box in CSS (unscaled) pixels.
     pub fn max_scroll_offset(&self, content_box_width: f32, content_box_height: f32) -> f32 {
-        let Some(layout) = self.editor.try_layout() else {
+        let Some(layout) = self.display_editor().try_layout() else {
             return 0.0;
         };
         let scale = layout.scale();
@@ -200,6 +358,72 @@ impl TextInputData {
     }
 
     pub(crate) fn apply_keypress_event(
+        &mut self,
+        font_ctx: &mut FontContext,
+        layout_ctx: &mut LayoutContext<TextBrush>,
+        shell_provider: &dyn ShellProvider,
+        mut event: BlitzKeyEvent,
+    ) -> Option<GeneratedTextInputEvent> {
+        if self.is_password() && event.state.is_pressed() {
+            let action = event.modifiers.contains(ACTION_MOD);
+            if action
+                && matches!(&event.key, Key::Character(c) if c.eq_ignore_ascii_case("c") || c.eq_ignore_ascii_case("x"))
+            {
+                return None;
+            }
+            if matches!(
+                event.key,
+                Key::Named(NamedKey::Delete | NamedKey::Backspace)
+            ) {
+                self.password_delete(
+                    font_ctx,
+                    layout_ctx,
+                    event.key == Key::Named(NamedKey::Backspace),
+                    action,
+                );
+                return Some(GeneratedTextInputEvent::Input);
+            }
+            let navigation = matches!(
+                event.key,
+                Key::Named(
+                    NamedKey::ArrowLeft
+                        | NamedKey::ArrowRight
+                        | NamedKey::ArrowUp
+                        | NamedKey::ArrowDown
+                        | NamedKey::Home
+                        | NamedKey::End
+                )
+            ) || action
+                && matches!(&event.key, Key::Character(c) if c.eq_ignore_ascii_case("a"));
+            if navigation {
+                if action && event.key == Key::Named(NamedKey::ArrowLeft) {
+                    event.key = Key::Named(NamedKey::Home);
+                } else if action && event.key == Key::Named(NamedKey::ArrowRight) {
+                    event.key = Key::Named(NamedKey::End);
+                }
+                self.refresh_display(font_ctx, layout_ctx);
+                let mut password = self.password.take().expect("password");
+                std::mem::swap(&mut self.editor, &mut password.editor);
+                let result =
+                    self.apply_plain_keypress_event(font_ctx, layout_ctx, shell_provider, event);
+                std::mem::swap(&mut self.editor, &mut password.editor);
+                let selection = password.editor.raw_selection();
+                let a = password.raw_index(selection.anchor().index());
+                let f = password.raw_index(selection.focus().index());
+                self.editor
+                    .driver(font_ctx, layout_ctx)
+                    .select_byte_range(a, f);
+                password.sync_selection(&self.editor, font_ctx, layout_ctx);
+                self.password = Some(password);
+                return result;
+            }
+        }
+        let result = self.apply_plain_keypress_event(font_ctx, layout_ctx, shell_provider, event);
+        self.refresh_display(font_ctx, layout_ctx);
+        result
+    }
+
+    fn apply_plain_keypress_event(
         &mut self,
         font_ctx: &mut FontContext,
         layout_ctx: &mut LayoutContext<TextBrush>,
@@ -370,6 +594,84 @@ impl TextInputData {
     }
 
     pub(crate) fn apply_apple_standard_keybinding(
+        &mut self,
+        font_ctx: &mut FontContext,
+        layout_ctx: &mut LayoutContext<TextBrush>,
+        shell_provider: &dyn ShellProvider,
+        command: &str,
+    ) -> Option<GeneratedTextInputEvent> {
+        if self.is_password() {
+            if matches!(command, "copy:" | "cut:") {
+                return None;
+            }
+            let deletion = match command {
+                "deleteBackward:" | "deleteBackwardByDecomposingPreviousCharacter:" => {
+                    Some((true, false))
+                }
+                "deleteForward:" => Some((false, false)),
+                "deleteWordBackward:"
+                | "deleteToBeginningOfLine:"
+                | "deleteToBeginningOfParagraph:" => Some((true, true)),
+                "deleteWordForward:" | "deleteToEndOfLine:" | "deleteToEndOfParagraph:" => {
+                    Some((false, true))
+                }
+                _ => None,
+            };
+            if let Some((backwards, whole)) = deletion {
+                self.password_delete(font_ctx, layout_ctx, backwards, whole);
+                return Some(GeneratedTextInputEvent::Input);
+            }
+            if command.starts_with("move") || command.starts_with("select") {
+                if command.contains("Word") {
+                    self.point_selection(font_ctx, layout_ctx, |driver| {
+                        if command.starts_with("select") {
+                            driver.select_all();
+                        } else if command.contains("Backward") || command.contains("Left") {
+                            if command.contains("ModifySelection") {
+                                driver.select_to_text_start();
+                            } else {
+                                driver.move_to_text_start();
+                            }
+                        } else if command.contains("ModifySelection") {
+                            driver.select_to_text_end();
+                        } else {
+                            driver.move_to_text_end();
+                        }
+                    });
+                    return Some(GeneratedTextInputEvent::Select);
+                }
+                self.refresh_display(font_ctx, layout_ctx);
+                let mut password = self.password.take().expect("password");
+                std::mem::swap(&mut self.editor, &mut password.editor);
+                let result = self.apply_plain_apple_standard_keybinding(
+                    font_ctx,
+                    layout_ctx,
+                    shell_provider,
+                    command,
+                );
+                std::mem::swap(&mut self.editor, &mut password.editor);
+                let selection = password.editor.raw_selection();
+                let a = password.raw_index(selection.anchor().index());
+                let f = password.raw_index(selection.focus().index());
+                self.editor
+                    .driver(font_ctx, layout_ctx)
+                    .select_byte_range(a, f);
+                password.sync_selection(&self.editor, font_ctx, layout_ctx);
+                self.password = Some(password);
+                return result;
+            }
+        }
+        let result = self.apply_plain_apple_standard_keybinding(
+            font_ctx,
+            layout_ctx,
+            shell_provider,
+            command,
+        );
+        self.refresh_display(font_ctx, layout_ctx);
+        result
+    }
+
+    fn apply_plain_apple_standard_keybinding(
         &mut self,
         font_ctx: &mut FontContext,
         layout_ctx: &mut LayoutContext<TextBrush>,
@@ -766,6 +1068,17 @@ impl TextInputData {
         layout_ctx: &mut LayoutContext<TextBrush>,
         event: BlitzImeEvent,
     ) -> Option<GeneratedTextInputEvent> {
+        let result = self.apply_plain_ime_event(font_ctx, layout_ctx, event);
+        self.refresh_display(font_ctx, layout_ctx);
+        result
+    }
+
+    fn apply_plain_ime_event(
+        &mut self,
+        font_ctx: &mut FontContext,
+        layout_ctx: &mut LayoutContext<TextBrush>,
+        event: BlitzImeEvent,
+    ) -> Option<GeneratedTextInputEvent> {
         let editor = &mut self.editor;
         let mut driver = editor.driver(font_ctx, layout_ctx);
 
@@ -779,6 +1092,7 @@ impl TextInputData {
                 Some(GeneratedTextInputEvent::PreEditChange)
             }
             BlitzImeEvent::Commit(text) => {
+                driver.clear_compose();
                 driver.insert_or_replace_selection(&text);
                 Some(GeneratedTextInputEvent::Input)
             }

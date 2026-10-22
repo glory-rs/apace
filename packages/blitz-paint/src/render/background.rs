@@ -786,6 +786,7 @@ enum BackgroundSizeComputeMode {
     /// Intrinsic dimensions of an image which may lack an intrinsic width,
     /// height, and/or aspect ratio (e.g. SVG), sized per the CSS default
     /// sizing algorithm (https://drafts.csswg.org/css-images/#default-sizing)
+    #[allow(dead_code)] // Upstream mode is unused when the SVG feature is off.
     Intrinsic {
         width: Option<f32>,
         height: Option<f32>,
