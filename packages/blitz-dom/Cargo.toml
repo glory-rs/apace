@@ -111,3 +111,8 @@ web-time = { workspace = true }
 # to prevent debug builds from panicking.
 [target.'cfg(any(target_vendor = "apple"))'.dependencies]
 objc2 = { version = "0.6", features = ["disable-encoding-assertions"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dev-dependencies]
+# Keep standalone engine tests on the same runtime-loaded Fontconfig path as
+# Glory's adapter, without depending on host development headers/pkg-config.
+fontique = { version = "=0.12.0", default-features = false, features = ["fontconfig-dlopen"] }

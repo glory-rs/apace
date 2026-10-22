@@ -11,6 +11,8 @@ inline reconstruction, focus-within state, password display/selection and IME
 purpose, and text-wrap-mode damage propagation. Existing upstream unsafe code
 and licenses remain; the transferred additions use safe Rust. Direct regressions
 are in blitz-dom; integration/geometry/window tests live in glory-rs/glory.
+Linux/FreeBSD test-only Fontique enables fontconfig-dlopen, matching the adapter
+without requiring target development headers. Runtime Fontconfig is still needed.
 
 Run `cargo test --locked -p blitz-dom --no-default-features --features
 system-fonts,complex-scripts --lib`. Cargo.lock pins this maintenance test

@@ -910,6 +910,7 @@ dependencies = [
  "cursor-icon",
  "debug_timer 0.1.3",
  "euclid",
+ "fontique",
  "html-escape",
  "icu_casemap",
  "icu_locale_core",
