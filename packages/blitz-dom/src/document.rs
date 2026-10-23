@@ -229,6 +229,7 @@ pub enum DocumentEvent {
 pub struct BaseDocument {
     /// ID of the document
     id: usize,
+    pub(crate) profile: Option<crate::profile::Profile>,
 
     // Config
     /// Base url for resolving linked resources (stylesheets, images, fonts, etc)
@@ -473,6 +474,7 @@ impl BaseDocument {
 
         let mut doc = Self {
             id,
+            profile: None,
             tx,
             rx: Some(rx),
 

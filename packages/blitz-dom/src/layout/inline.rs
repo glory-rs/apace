@@ -665,6 +665,7 @@ impl LayoutPassState<'_> {
 
         #[cfg(not(feature = "floats"))]
         {
+            let _span = self.profile_span(crate::profile::Phase::TextBreak);
             inline_layout.layout.break_all_lines(Some(width));
         }
 
@@ -675,6 +676,7 @@ impl LayoutPassState<'_> {
         // Perform inline layout
         #[cfg(feature = "floats")]
         {
+            let _span = self.profile_span(crate::profile::Phase::TextBreak);
             let mut breaker = inline_layout.layout.break_lines();
             let initial_slot = block_ctx.find_content_slot(0.0, Clear::None, None);
             let mut has_active_floats = initial_slot.segment_id.is_some();
@@ -824,6 +826,7 @@ impl LayoutPassState<'_> {
             })
             .unwrap_or((parley::layout::Alignment::Start, None));
 
+        let align_span = self.profile_span(crate::profile::Phase::TextAlign);
         inline_layout.layout.align(
             alignment,
             AlignmentOptions {
@@ -831,6 +834,7 @@ impl LayoutPassState<'_> {
                 last_line_alignment,
             },
         );
+        drop(align_span);
 
         // Parley lays out empty text as a single strut-height line (text-editor semantics),
         // but a line box containing no text, inline boxes or other in-flow content is a

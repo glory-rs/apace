@@ -1058,6 +1058,7 @@ pub(crate) fn build_inline_layout_into(
     text_layout: &mut TextLayout,
     scale: f32,
     inline_context_root_node_id: NodeId,
+    profile: Option<&crate::profile::Profile>,
 ) {
     // Get the inline context's root node's text styles
     let root_node = &nodes[inline_context_root_node_id];
@@ -1144,7 +1145,12 @@ pub(crate) fn build_inline_layout_into(
         );
     }
 
+    let mut span = profile.map(|profile| profile.span(crate::profile::Phase::TextShape));
     text_layout.text = builder.build_into(&mut text_layout.layout);
+    if let Some(span) = &mut span {
+        span.set_work(text_layout.text.len() as u64);
+    }
+    drop(span);
     return;
 
     fn build_inline_layout_recursive(

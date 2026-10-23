@@ -32,6 +32,7 @@ use crate::{
         damage::{ALL_DAMAGE, CONSTRUCT_BOX, CONSTRUCT_DESCENDENT, CONSTRUCT_FC},
     },
     node::TextBrush,
+    profile::Phase,
 };
 
 impl BaseDocument {
@@ -77,15 +78,18 @@ impl BaseDocument {
 
         // Apply any device changes (viewport resize, zoom, color-scheme, etc)
         // accumulated since the last resolve as a single device rebuild.
+        let style_span = self.profile_span(Phase::Style);
         self.flush_pending_device_changes();
 
         // we need to resolve stylist first since it will need to drive our layout bits
         self.resolve_stylist(current_time_for_animations);
+        drop(style_span);
         timer.record_time("style");
 
         // Non-incremental mode is "every node is damaged every frame": mark the
         // whole tree and let the same damage pipeline reconstruct and relayout
         // everything.
+        let damage_span = self.profile_span(Phase::Damage);
         if !self.incremental_layout {
             self.mark_all_damaged();
             timer.record_time("mark_all");
@@ -93,27 +97,35 @@ impl BaseDocument {
 
         // Propagate damage flags (from mutation and restyles) up and down the tree
         self.propagate_damage_flags(root_node_id);
+        drop(damage_span);
         timer.record_time("damage");
 
         // Fix up tree for layout (insert anonymous blocks as necessary, etc)
+        let construct_span = self.profile_span(Phase::Construct);
         self.resolve_layout_children();
         #[cfg(debug_assertions)]
         self.assert_layout_parents_consistent();
+        drop(construct_span);
         timer.record_time("construct");
 
+        let post_construct_span = self.profile_span(Phase::PostConstruct);
         self.resolve_deferred_tasks();
         // Flush background/mask images from style to dedicated storage on the
         // nodes whose style changed (queued by the style traversal and by
         // pseudo-element box construction), fetching any not-yet-loaded images.
         self.flush_pending_style_images();
+        drop(post_construct_span);
         timer.record_time("pconstruct");
 
         // Next we resolve layout with the data resolved by stlist
+        let layout_span = self.profile_span(Phase::BoxLayout);
         self.resolve_layout();
+        drop(layout_span);
         timer.record_time("layout");
         self.nodes.bump_geometry_generation();
 
         // Resolve transforms
+        let transform_span = self.profile_span(Phase::Transforms);
         self.resolve_transforms(root_node_id);
         timer.record_time("transform");
         // Only the current editor needs caret scrolling/IME placement after
@@ -121,17 +133,22 @@ impl BaseDocument {
         if let Some(focus) = self.focus_node_id {
             self.clamp_text_input_scroll(focus);
         }
+        drop(transform_span);
 
         // Build paint children / stacking contexts for damaged subtrees. Runs
         // after layout and transforms so that stacking-context roots created by
         // this frame's transforms are picked up, and before damage is cleared.
+        let paint_tree_span = self.profile_span(Phase::PaintTree);
         self.build_paint_tree(root_node_id);
+        drop(paint_tree_span);
         timer.record_time("paint_tree");
 
         // Clear all damage and dirty flags, walking only subtrees which are
         // marked as (potentially) containing damage.
         let doc_node_id = self.root_node().id;
+        let cleanup_span = self.profile_span(Phase::Cleanup);
         self.clear_damage_and_dirty_flags(doc_node_id);
+        drop(cleanup_span);
         timer.record_time("c_damage");
 
         // Re-resolve the hover node from the pointer position against the fresh
@@ -141,8 +158,11 @@ impl BaseDocument {
         // pass (the clearing loop would otherwise wipe them). Any resulting
         // restyle is picked up on the next resolve pass; a redraw is requested
         // if the hovered node actually changes.
+        let hover_span = self.profile_span(Phase::Hover);
         self.refresh_hover();
+        drop(hover_span);
 
+        let subdocuments_span = self.profile_span(Phase::Subdocuments);
         let mut subdoc_is_animating = false;
         for &node_id in &self.sub_document_nodes {
             let node = &mut self.nodes[node_id];
@@ -168,6 +188,7 @@ impl BaseDocument {
             }
         }
         self.subdoc_is_animating = subdoc_is_animating;
+        drop(subdocuments_span);
         timer.record_time("subdocs");
 
         timer.print_times(&format!("Resolve({}): ", self.id()));
@@ -395,6 +416,7 @@ impl BaseDocument {
                         &mut layout,
                         self.viewport.scale(),
                         task.node_id,
+                        self.profile.as_ref(),
                     );
 
                     #[cfg(feature = "parallel-construct")]

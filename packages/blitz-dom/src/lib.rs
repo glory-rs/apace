@@ -52,6 +52,7 @@ mod iframe;
 /// Integration of taffy and the DOM.
 mod layout;
 mod mutator;
+pub mod profile;
 mod query_selector;
 mod resolve;
 mod resource_queue;
