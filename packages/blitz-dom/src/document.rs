@@ -2601,6 +2601,136 @@ impl BaseDocument {
         self.clamp_text_input_scroll(node_id);
     }
 
+    /// Update an initialized editable text leaf with finite attributed ranges.
+    /// Offsets are UTF-8 bytes in `text`. Equal raw text retains selection and
+    /// active preedit; a different controlled value replaces the editor buffer.
+    /// Password controls reject attribution before modifying any editor state.
+    pub fn set_attributed_text(
+        &mut self,
+        node_id: NodeId,
+        text: &str,
+        spans: Vec<parley::editing::EditorStyleSpan<TextBrush>>,
+    ) -> Result<(), &'static str> {
+        if text.len() > 1_048_576 || spans.len() > 32_768 {
+            return Err("attributed text exceeds its budget");
+        }
+        if spans.iter().any(|span| {
+            span.range.start > span.range.end
+                || !text.is_char_boundary(span.range.start)
+                || !text.is_char_boundary(span.range.end)
+        }) {
+            return Err("invalid attributed UTF-8 range");
+        }
+        let node = self.nodes.get_mut(node_id).ok_or("text leaf is absent")?;
+        let input = node
+            .element_data_mut()
+            .and_then(|element| element.text_input_data_mut())
+            .ok_or("text leaf is not initialized")?;
+        if input.is_password() {
+            return Err("password controls cannot contain attributed text");
+        }
+        if input.editor.raw_text() != text {
+            input.editor.set_text(text);
+        }
+        input
+            .editor
+            .set_style_spans(spans)
+            .map_err(|_| "invalid attributed UTF-8 range")?;
+        input
+            .editor
+            .refresh_layout(&mut self.font_ctx.lock().unwrap(), &mut self.layout_ctx);
+        node.insert_damage(crate::layout::damage::ONLY_RELAYOUT);
+        node.mark_ancestors_dirty();
+        self.clamp_text_input_scroll(node_id);
+        self.shell_provider.request_redraw();
+        Ok(())
+    }
+
+    /// Attach bounded atomic inline objects. The host paints the corresponding
+    /// resource at the returned Parley position, using its normal resource policy.
+    pub fn set_attributed_objects(
+        &mut self,
+        node_id: NodeId,
+        boxes: Vec<parley::InlineBox>,
+    ) -> Result<(), &'static str> {
+        if boxes.len() > 32768 {
+            return Err("too many inline objects");
+        }
+        let input = self
+            .nodes
+            .get_mut(node_id)
+            .and_then(|node| node.element_data_mut())
+            .and_then(|element| element.text_input_data_mut())
+            .ok_or("editor absent")?;
+        if input.is_password() {
+            return Err("password cannot contain inline objects");
+        }
+        input
+            .editor
+            .set_inline_boxes(boxes)
+            .map_err(|_| "invalid inline objects")?;
+        input
+            .editor
+            .refresh_layout(&mut self.font_ctx.lock().unwrap(), &mut self.layout_ctx);
+        self.nodes[node_id].mark_ancestors_dirty();
+        Ok(())
+    }
+
+    /// Current object positions in CSS pixels, from the actual editor line layout.
+    pub fn attributed_object_positions(&self, node_id: NodeId) -> Vec<(u64, f32, f32, f32, f32)> {
+        let scale = self.viewport.scale();
+        let Some(input) = self
+            .nodes
+            .get(node_id)
+            .and_then(|n| n.element_data())
+            .and_then(|e| e.text_input_data())
+        else {
+            return Vec::new();
+        };
+        let Some(layout) = input.editor.try_layout() else {
+            return Vec::new();
+        };
+        layout
+            .lines()
+            .flat_map(|line| line.items())
+            .filter_map(|item| match item {
+                parley::PositionedLayoutItem::InlineBox(b) => Some((
+                    b.id,
+                    b.x / scale,
+                    b.y / scale,
+                    b.width / scale,
+                    b.height / scale,
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Measure an attributed leaf at a CSS content width. This uses the same
+    /// Parley buffer, styles, shaping and line breaks as selection and painting.
+    /// A rich-document host can size each paragraph/cell to the returned height;
+    /// ordinary textarea rows retain their existing behavior.
+    pub fn measure_attributed_text(&mut self, node_id: NodeId, width: f32) -> Option<(f32, f32)> {
+        if !width.is_finite() || width < 0.0 {
+            return None;
+        }
+        let scale = self.viewport.scale();
+        if !scale.is_finite() || scale <= 0.0 {
+            return None;
+        }
+        let node = self.nodes.get_mut(node_id)?;
+        let input = node.element_data_mut()?.text_input_data_mut()?;
+        if input.is_password() {
+            return None;
+        }
+        input.set_width(Some(width * scale));
+        input
+            .editor
+            .refresh_layout(&mut self.font_ctx.lock().unwrap(), &mut self.layout_ctx);
+        let layout = input.editor.try_layout()?;
+        Some((layout.width() / scale, layout.height() / scale))
+    }
+
     /// Recompute the scroll offset of the text input at `node_id` (if any) so that its caret
     /// remains visible within the input's content box.
     pub(crate) fn clamp_text_input_scroll(&mut self, node_id: NodeId) {
@@ -3751,6 +3881,143 @@ mod font_face_override_tests {
             resolved_name, ALIAS,
             "registered family should report the CSS-declared name, \
              not the font file's internal `name` table entry",
+        );
+    }
+}
+
+#[cfg(test)]
+mod attributed_text_tests {
+    use super::*;
+    use crate::{Attribute, qual_name};
+    use blitz_traits::shell::ColorScheme;
+    use parley::StyleProperty;
+    use parley::editing::EditorStyleSpan;
+
+    fn document(password: bool) -> (BaseDocument, NodeId) {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(600, 400, 1.0, ColorScheme::Light)),
+            ..Default::default()
+        });
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html"), vec![]);
+        let body = m.create_element(qual_name!("body"), vec![]);
+        let input = if password {
+            m.create_element(
+                qual_name!("input"),
+                vec![Attribute {
+                    name: qual_name!("type"),
+                    value: "password".into(),
+                }],
+            )
+        } else {
+            m.create_element(qual_name!("textarea"), vec![])
+        };
+        m.append_children(body, &[input]);
+        m.append_children(html, &[body]);
+        m.append_children(root, &[html]);
+        drop(m);
+        doc.resolve(0.0);
+        (doc, input)
+    }
+    #[test]
+    fn attributed_leaf_styles_drive_layout_and_reject_invalid_changes_atomically() {
+        let (mut doc, input) = document(false);
+        doc.set_attributed_text(
+            input,
+            "abc",
+            vec![EditorStyleSpan {
+                range: 0..3,
+                property: StyleProperty::FontSize(48.0),
+            }],
+        )
+        .unwrap();
+        let (_, large) = doc.measure_attributed_text(input, 200.0).unwrap();
+        doc.set_attributed_text(
+            input,
+            "abc",
+            vec![EditorStyleSpan {
+                range: 0..3,
+                property: StyleProperty::FontSize(12.0),
+            }],
+        )
+        .unwrap();
+        let (_, small) = doc.measure_attributed_text(input, 200.0).unwrap();
+        assert!(
+            large > small && small > 0.0,
+            "the actual font layout must reflect span size"
+        );
+        assert!(
+            doc.set_attributed_text(
+                input,
+                "😀",
+                vec![EditorStyleSpan {
+                    range: 1..4,
+                    property: StyleProperty::Underline(true)
+                }]
+            )
+            .is_err()
+        );
+        assert_eq!(
+            doc.nodes[input]
+                .element_data()
+                .unwrap()
+                .text_input_data()
+                .unwrap()
+                .editor
+                .raw_text(),
+            "abc"
+        );
+        assert!(doc.measure_attributed_text(input, f32::NAN).is_none());
+    }
+    #[test]
+    fn equal_controlled_text_keeps_preedit_and_selection() {
+        let (mut doc, input) = document(false);
+        doc.set_attributed_text(input, "abc", vec![]).unwrap();
+        doc.with_text_input(input, |mut driver| {
+            driver.select_byte_range(1, 2);
+            driver.set_compose("你", Some((3, 3)));
+        });
+        let before = doc.nodes[input]
+            .element_data()
+            .unwrap()
+            .text_input_data()
+            .unwrap()
+            .editor
+            .raw_selection()
+            .text_range();
+        doc.set_attributed_text(
+            input,
+            "a你c",
+            vec![EditorStyleSpan {
+                range: 1..4,
+                property: StyleProperty::Underline(true),
+            }],
+        )
+        .unwrap();
+        let editor = &doc.nodes[input]
+            .element_data()
+            .unwrap()
+            .text_input_data()
+            .unwrap()
+            .editor;
+        assert_eq!(editor.raw_selection().text_range(), before);
+        assert_eq!(*editor.raw_compose(), Some(1..4));
+    }
+    #[test]
+    fn password_leaf_never_accepts_attributed_content() {
+        let (mut doc, input) = document(true);
+        assert!(doc.set_attributed_text(input, "secret", vec![]).is_err());
+        assert!(doc.measure_attributed_text(input, 100.0).is_none());
+        assert_eq!(
+            doc.nodes[input]
+                .element_data()
+                .unwrap()
+                .text_input_data()
+                .unwrap()
+                .editor
+                .raw_text(),
+            ""
         );
     }
 }

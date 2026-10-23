@@ -76,6 +76,8 @@ pub struct TextInputData {
     /// vertical offset. It is kept up to date so that the caret remains visible within the
     /// input's content box.
     pub scroll_offset: f32,
+    /// Selected as part of a host-owned multi-leaf document selection.
+    pub document_selection: bool,
 }
 
 // FIXME: Implement Clone for PlainEditor
@@ -97,6 +99,7 @@ impl TextInputData {
             alignment: parley::layout::Alignment::Start,
             is_multiline,
             scroll_offset: 0.0,
+            document_selection: false,
         }
     }
 

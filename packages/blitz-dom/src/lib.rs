@@ -53,12 +53,12 @@ mod iframe;
 mod layout;
 mod mutator;
 pub mod profile;
-#[cfg(all(test, feature = "system-fonts"))]
-mod style_damage_tests;
 mod query_selector;
 mod resolve;
 mod resource_queue;
 mod resources;
+#[cfg(all(test, feature = "system-fonts"))]
+mod style_damage_tests;
 pub use resources::{ResourceLimits, ResourceStats};
 /// Computation of resolved CSS property values (`getComputedStyle()`)
 mod resolved_style;
@@ -108,7 +108,12 @@ pub use markup5ever::{
 };
 pub use mutator::DocumentMutator;
 pub use node::{Attribute, DocumentData, ElementData, Node, NodeData, TextNodeData};
-pub use parley::FontContext;
+pub use parley::editing::EditorStyleSpan;
+pub use parley::{Cursor, FontContext};
+pub use parley::{
+    FontFamily, FontStyle, FontWeight, GenericFamily, InlineBox, InlineBoxKind, StyleProperty,
+    VerticalAlign,
+};
 pub use scrolling::{ScrollBehavior, ScrollLogicalPosition};
 pub use tree::NodeTree;
 

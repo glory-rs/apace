@@ -922,7 +922,7 @@ impl ElementCx<'_, '_> {
             let transform = self.transform
                 * Affine::translate((pos.x * self.scale - scroll_x, pos.y * self.scale - scroll_y));
 
-            if self.node.is_focussed() {
+            if self.node.is_focussed() || input_data.document_selection {
                 // Render selection/caret
                 for (rect, _line_idx) in input_data.display_editor().selection_geometry().iter() {
                     scene.fill(
@@ -933,7 +933,9 @@ impl ElementCx<'_, '_> {
                         &convert_rect(rect),
                     );
                 }
-                if let Some(cursor) = input_data.cursor_geometry(1.5) {
+                if self.node.is_focussed()
+                    && let Some(cursor) = input_data.cursor_geometry(1.5)
+                {
                     let color = self.style.get_inherited_text().color;
                     let caret_color = match &self.style.get_inherited_ui().caret_color.0 {
                         ColorOrAuto::Auto => color,
@@ -950,6 +952,14 @@ impl ElementCx<'_, '_> {
                 };
             }
 
+            // Render finite attributed backgrounds before their glyphs.
+            crate::text::draw_inline_backgrounds(
+                scene,
+                input_data.display_editor().try_layout().unwrap().lines(),
+                self.context.dom,
+                transform,
+                self.node.id,
+            );
             // Render text
             let mut draw_text_context = self.context.draw_text_context.borrow_mut();
             crate::text::stroke_text(
