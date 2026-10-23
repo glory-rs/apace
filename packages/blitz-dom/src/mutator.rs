@@ -269,6 +269,17 @@ impl DocumentMutator<'_> {
     }
 
     pub fn set_attribute(&mut self, node_id: NodeId, name: QualName, value: &str) {
+        // Inline declarations still invalidate selectors and inherited styles,
+        // but their layout damage comes from the computed-style difference.
+        // A top/height edit must not reconstruct all descendant text contexts.
+        let style_attribute = name.local == local_name!("style");
+        #[cfg(feature = "custom-widget")]
+        let style_attribute = style_attribute
+            && !self.doc.nodes[node_id]
+                .element_data()
+                .is_some_and(|element| {
+                    matches!(element.special_data, SpecialElementData::CustomWidget(_))
+                });
         let node_is_in_document = self.doc.nodes[node_id].flags.is_in_document();
         if node_is_in_document {
             self.doc.snapshot_node(node_id);
@@ -276,7 +287,9 @@ impl DocumentMutator<'_> {
             let node = &mut self.doc.nodes[node_id];
             if let Some(mut data) = node.try_stylo_element_data_mut().and_then(|s| s.get_mut()) {
                 data.hint |= RestyleHint::restyle_subtree();
-                data.damage.insert(ALL_DAMAGE);
+                if !style_attribute {
+                    data.damage.insert(ALL_DAMAGE);
+                }
             }
             node.mark_damaged();
 
@@ -415,6 +428,14 @@ impl DocumentMutator<'_> {
     }
 
     pub fn clear_attribute(&mut self, node_id: NodeId, name: QualName) {
+        let style_attribute = name.local == local_name!("style");
+        #[cfg(feature = "custom-widget")]
+        let style_attribute = style_attribute
+            && !self.doc.nodes[node_id]
+                .element_data()
+                .is_some_and(|element| {
+                    matches!(element.special_data, SpecialElementData::CustomWidget(_))
+                });
         let node_is_in_document = self.doc.nodes[node_id].flags.is_in_document();
         if node_is_in_document {
             self.doc.snapshot_node(node_id);
@@ -423,7 +444,9 @@ impl DocumentMutator<'_> {
 
             if let Some(mut data) = node.try_stylo_element_data_mut().and_then(|s| s.get_mut()) {
                 data.hint |= RestyleHint::restyle_subtree();
-                data.damage.insert(ALL_DAMAGE);
+                if !style_attribute {
+                    data.damage.insert(ALL_DAMAGE);
+                }
             }
             node.mark_damaged();
 

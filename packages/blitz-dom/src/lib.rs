@@ -53,6 +53,8 @@ mod iframe;
 mod layout;
 mod mutator;
 pub mod profile;
+#[cfg(all(test, feature = "system-fonts"))]
+mod style_damage_tests;
 mod query_selector;
 mod resolve;
 mod resource_queue;
