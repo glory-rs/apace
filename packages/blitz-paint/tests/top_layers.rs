@@ -45,6 +45,7 @@ fn native_top_layers_paint_once_after_document_and_escape_ancestor_clip_opacity_
         a,
         Some(TopLayerConfig {
             modal: true,
+            contain_scroll: true,
             backdrop: Some(blitz_dom::util::Color::from_rgba8(0, 0, 0, 128)),
         }),
     )

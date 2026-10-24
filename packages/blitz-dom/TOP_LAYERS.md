@@ -11,6 +11,8 @@ a connected move retains the entry and follows its new style ancestry.
 The engine sets `:popover-open` and `:modal` state. Host code remains responsible
 for finite positioning, initial/return focus, modal focus scopes, inertness and
 dismissal proposals. This API alone does not advertise an input/focus driver.
+`contain_scroll` explicitly stops user wheel, editor, touch and fling scroll
+chaining at that visual root. Its default remains ordinary DOM chaining.
 Computed `display:none` on an ancestor suppresses the box and its backdrop while
 retaining only its current lease. Reattachment never resurrects a retired lease.
 

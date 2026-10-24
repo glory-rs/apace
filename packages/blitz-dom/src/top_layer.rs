@@ -11,6 +11,9 @@ pub const MAX_TOP_LAYERS: usize = 1024;
 pub struct TopLayerConfig {
     /// A modal layer catches hits on its backdrop instead of falling through.
     pub modal: bool,
+    /// Stop unconsumed user scroll at this root, including editor/touch/fling
+    /// chains, while retaining logical DOM ancestry for style and events.
+    pub contain_scroll: bool,
     /// Optional viewport backdrop, painted immediately before this layer.
     pub backdrop: Option<Color>,
 }
@@ -121,6 +124,10 @@ impl BaseDocument {
         let state = ElementState::POPOVER_OPEN | ElementState::MODAL;
         self.snapshot_node_and(node_id, state, |node| {
             node.flags.set(NodeFlags::IS_TOP_LAYER, config.is_some());
+            node.flags.set(
+                NodeFlags::CONTAIN_TOP_LAYER_SCROLL,
+                config.is_some_and(|c| c.contain_scroll),
+            );
             let element_state = node.element_state_mut();
             element_state.set(ElementState::POPOVER_OPEN, config.is_some());
             element_state.set(ElementState::MODAL, config.is_some_and(|c| c.modal));

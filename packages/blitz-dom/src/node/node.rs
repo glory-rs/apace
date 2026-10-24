@@ -59,6 +59,7 @@ bitflags! {
         const IS_IN_DOCUMENT = 0b00000100;
         /// A document-owned viewport layout/paint root. DOM and style ancestry stay intact.
         const IS_TOP_LAYER = 0b00001000;
+        const CONTAIN_TOP_LAYER_SCROLL = 0b00010000;
     }
 }
 

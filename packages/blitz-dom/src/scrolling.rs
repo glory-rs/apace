@@ -260,6 +260,14 @@ impl BaseDocument {
     fn next_scroller_in_chain(&self, target: ScrollTarget) -> Option<ScrollTarget> {
         match target {
             ScrollTarget::Viewport => None,
+            ScrollTarget::Node(node_id)
+                if self.nodes.get(node_id).is_some_and(|node| {
+                    node.flags
+                        .contains(crate::node::NodeFlags::CONTAIN_TOP_LAYER_SCROLL)
+                }) =>
+            {
+                None
+            }
             ScrollTarget::Node(node_id) => Some(
                 self.nodes
                     .get(node_id)

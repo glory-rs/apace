@@ -221,12 +221,51 @@ fn top_layer_hidden_ancestors_suppress_box_and_backdrop_until_style_recovers() {
             a,
             Some(TopLayerConfig {
                 modal: true,
-                backdrop: Some(color)
+                backdrop: Some(color),
+                contain_scroll: true
             })
         ),
         Err(TopLayerError::InvalidBackdrop)
     );
     assert_eq!(doc.top_layers(), before);
+}
+
+#[test]
+fn top_layer_scroll_containment_stops_wheel_editor_and_fling_chains_at_the_visual_root() {
+    let (mut doc, [body, _, a, _, _]) = fixture();
+    let mut m = doc.mutate();
+    m.set_attribute(body, qual_name!("style"), "height:1600px");
+    m.set_attribute(a, qual_name!("style"), "overflow:auto");
+    let child = m.create_element(
+        qual_name!("div", html),
+        vec![Attribute {
+            name: qual_name!("style"),
+            value: "height:900px".into(),
+        }],
+    );
+    m.append_children(a, &[child]);
+    drop(m);
+    doc.set_top_layer(
+        a,
+        Some(TopLayerConfig {
+            contain_scroll: true,
+            ..Default::default()
+        }),
+    )
+    .unwrap();
+    doc.resolve(0.);
+    doc.set_viewport_scroll(crate::Point { x: 0., y: 240. });
+    doc.scroll_node_by(child, 0., -2000., &mut |_| {});
+    assert!(doc.get_node(a).unwrap().scroll_offset().y > 0.);
+    assert_eq!(doc.viewport_scroll().y, 240.);
+    doc.set_top_layer(a, Some(TopLayerConfig::default()))
+        .unwrap();
+    doc.resolve(0.);
+    doc.scroll_node_by(child, 0., -2000., &mut |_| {});
+    assert!(
+        doc.viewport_scroll().y > 240.,
+        "explicit Chain policy keeps ordinary DOM scroll propagation"
+    );
 }
 
 #[test]
