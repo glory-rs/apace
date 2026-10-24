@@ -599,7 +599,9 @@ impl BaseDocument {
                         #[cfg(feature = "tracing")]
                         tracing::info!("Image {url_str} already pending, queueing node {node_id}");
                         if waiting_list.waiters.len() < self.resource_limits.image_waiters {
-                            waiting_list.waiters.push((node_id, kind.image_type(idx)));
+                            waiting_list
+                                .waiters
+                                .push((node_id, kind.image_type(idx), None));
                         } else {
                             self.resource_counters.rejected =
                                 self.resource_counters.rejected.saturating_add(1);
@@ -636,7 +638,7 @@ impl BaseDocument {
                             url_str.to_string(),
                             crate::resources::PendingImage {
                                 request_id: handler.request_id(),
-                                waiters: vec![(node_id, kind.image_type(idx))],
+                                waiters: vec![(node_id, kind.image_type(idx), None)],
                             },
                         );
 

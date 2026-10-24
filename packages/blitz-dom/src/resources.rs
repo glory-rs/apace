@@ -2,6 +2,9 @@
 use std::collections::HashMap;
 
 use crate::{BaseDocument, NodeId, node::ImageData, util::ImageType};
+#[cfg(test)]
+#[path = "image_observation_tests.rs"]
+mod image_observation_tests;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ResourceLimits {
@@ -52,9 +55,79 @@ pub struct ResourceStats {
     pub failures: u64,
 }
 
+/// One live element consumer, independently of a shared URL fetch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ImageRequestId(pub u64);
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageLoadStatus {
+    Loaded,
+    Failed,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ImageLoadEvent {
+    pub node: NodeId,
+    pub request: ImageRequestId,
+    pub status: ImageLoadStatus,
+}
+#[derive(Default)]
+pub(crate) struct ImageObservations {
+    next: u64,
+    live: HashMap<NodeId, ImageConsumer>,
+    sequence: u64,
+    ready: HashMap<NodeId, (u64, ImageLoadEvent)>,
+}
+struct ImageConsumer {
+    request: ImageRequestId,
+    terminal: bool,
+}
+impl ImageObservations {
+    pub fn begin(&mut self, node: NodeId) -> Option<ImageRequestId> {
+        self.ready.remove(&node);
+        self.live.remove(&node);
+        let next = self.next.checked_add(1)?;
+        self.next = next;
+        let request = ImageRequestId(next);
+        self.live.insert(
+            node,
+            ImageConsumer {
+                request,
+                terminal: false,
+            },
+        );
+        Some(request)
+    }
+    pub fn retire(&mut self, node: NodeId) {
+        self.live.remove(&node);
+        self.ready.remove(&node);
+    }
+    pub fn complete(&mut self, node: NodeId, request: ImageRequestId, status: ImageLoadStatus) {
+        if let Some(consumer) = self.live.get_mut(&node)
+            && consumer.request == request
+            && !consumer.terminal
+        {
+            consumer.terminal = true;
+            self.sequence = self
+                .sequence
+                .checked_add(1)
+                .expect("image completion count is bounded by admitted requests");
+            self.ready.insert(
+                node,
+                (
+                    self.sequence,
+                    ImageLoadEvent {
+                        node,
+                        request,
+                        status,
+                    },
+                ),
+            );
+        }
+    }
+}
+
 pub(crate) struct PendingImage {
     pub request_id: usize,
-    pub waiters: Vec<(NodeId, ImageType)>,
+    pub waiters: Vec<(NodeId, ImageType, Option<ImageRequestId>)>,
 }
 
 #[derive(Default)]
@@ -119,6 +192,42 @@ impl ImageCache {
 }
 
 impl BaseDocument {
+    pub(crate) fn cancel_replaced_image_consumers(&mut self, node: NodeId) {
+        let provider = &self.net_provider;
+        let document = self.id();
+        self.pending_images.retain(|url, pending| {
+            pending
+                .waiters
+                .retain(|(id, _, request)| *id != node || request.is_none());
+            if pending.waiters.is_empty() {
+                self.tx.pool.cancel(pending.request_id);
+                provider.cancel(document, url);
+                false
+            } else {
+                true
+            }
+        });
+    }
+    /// Current element-consumer identity; changes even for an explicit same-URL reload.
+    pub fn image_request(&self, node: NodeId) -> Option<ImageRequestId> {
+        self.image_observations
+            .live
+            .get(&node)
+            .map(|consumer| consumer.request)
+    }
+    /// Terminal observations recorded after actual resource consumption, including cache hits.
+    /// Storage contains at most one result per live image element; no URL/history scan.
+    pub fn take_image_events(&mut self) -> Vec<ImageLoadEvent> {
+        let mut events: Vec<_> = self
+            .image_observations
+            .ready
+            .drain()
+            .map(|(_, event)| event)
+            .collect();
+        events.sort_by_key(|(sequence, _)| *sequence);
+        events.into_iter().map(|(_, event)| event).collect()
+    }
+
     pub fn resource_stats(&self) -> ResourceStats {
         let pool = self.tx.pool.stats();
         ResourceStats {
@@ -166,7 +275,17 @@ impl BaseDocument {
         let doc_id = self.id();
         let mut removed = Vec::new();
         self.pending_images.retain(|url, pending| {
-            pending.waiters.retain(|(id, kind)| {
+            pending.waiters.retain(|(id, kind, request)| {
+                if request.is_some()
+                    && self
+                        .image_observations
+                        .live
+                        .get(id)
+                        .map(|consumer| consumer.request)
+                        != *request
+                {
+                    return false;
+                }
                 let Some(node) = nodes.get(*id).filter(|node| node.flags.is_in_document()) else {
                     removed.push((*id, *kind, url.clone()));
                     return false;

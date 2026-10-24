@@ -61,7 +61,9 @@ mod query_selector;
 mod resolve;
 mod resource_queue;
 mod resources;
-pub use resources::{ResourceLimits, ResourceStats};
+pub use resources::{
+    ImageLoadEvent, ImageLoadStatus, ImageRequestId, ResourceLimits, ResourceStats,
+};
 /// Computation of resolved CSS property values (`getComputedStyle()`)
 mod resolved_style;
 /// Scrolling of nodes and the viewport, and scroll animations.

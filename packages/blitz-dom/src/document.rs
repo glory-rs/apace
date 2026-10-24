@@ -363,6 +363,7 @@ pub struct BaseDocument {
     /// Cache of loaded images, keyed by URL. Allows reusing images across multiple
     /// elements without re-fetching from the network.
     pub(crate) image_cache: crate::resources::ImageCache,
+    pub(crate) image_observations: crate::resources::ImageObservations,
     pub(crate) resource_limits: crate::ResourceLimits,
     pub(crate) resource_counters: crate::ResourceStats,
 
@@ -524,6 +525,7 @@ impl BaseDocument {
             resource_limits: crate::ResourceLimits::default(),
             resource_counters: crate::ResourceStats::default(),
             pending_images: HashMap::new(),
+            image_observations: Default::default(),
             pending_style_image_nodes: Vec::new(),
             pending_critical_resources: HashSet::new(),
             controls_to_form: HashMap::new(),
@@ -911,6 +913,7 @@ impl BaseDocument {
     /// (hover/active/focus/mousedown/selection/drag/scrollbar) that references
     /// it so that stale NodeIds are never dereferenced after the slot is freed.
     pub(crate) fn remove_node_from_tree(&mut self, node_id: NodeId) -> Option<Node> {
+        self.image_observations.retire(node_id);
         self.clear_interaction_state_for_removed_node(node_id);
         let node = self.nodes.remove(node_id)?;
         // Hidden containers may skip reconstruction in the next style pass.
@@ -1369,7 +1372,14 @@ impl BaseDocument {
                     } else {
                         Vec::new()
                     };
-                    for (id, kind) in &waiting_nodes {
+                    for (id, kind, request) in &waiting_nodes {
+                        if let Some(request) = request {
+                            self.image_observations.complete(
+                                *id,
+                                *request,
+                                crate::ImageLoadStatus::Failed,
+                            );
+                        }
                         let Some(element) = self
                             .nodes
                             .get_mut(*id)
@@ -1530,7 +1540,12 @@ impl BaseDocument {
         self.image_cache.insert(url.to_string(), image.clone());
 
         // Apply to all waiting nodes
-        for (node_id, image_type) in waiting_nodes {
+        for (node_id, image_type, request) in waiting_nodes {
+            if let Some(request) = request {
+                if self.image_request(node_id) != Some(request) {
+                    continue;
+                }
+            }
             let Some(node) = self.get_node_mut(node_id) else {
                 continue;
             };
@@ -1562,6 +1577,9 @@ impl BaseDocument {
                         layer_image.image = image.clone();
                     }
                 }
+            }
+            if let Some(request) = request {
+                self.image_observations.complete(node_id, request, crate::ImageLoadStatus::Loaded);
             }
         }
     }

@@ -537,6 +537,7 @@ impl DocumentMutator<'_> {
                 SpecialElementData::Image(Box::new(crate::node::ImageData::None));
             node.clear_layout_cache();
             node.insert_damage(ALL_DAMAGE);
+            self.load_image(node_id);
         } else if (tag, attr) == tag_and_attr!("canvas", "src") {
             self.recompute_is_animating = true;
         } else if (tag, attr) == tag_and_attr!("link", "href") {
@@ -1241,7 +1242,19 @@ impl<'doc> DocumentMutator<'doc> {
     }
 
     fn load_image(&mut self, target_id: NodeId) {
+        let Some(request) = self.doc.image_observations.begin(target_id) else {
+            self.doc.resource_counters.rejected =
+                self.doc.resource_counters.rejected.saturating_add(1);
+            return;
+        };
+        // Retire obsolete consumers before a same-URL replacement can join its fetch.
+        self.doc.cancel_replaced_image_consumers(target_id);
         if self.doc.net_provider.is_noop() {
+            self.doc.image_observations.complete(
+                target_id,
+                request,
+                crate::ImageLoadStatus::Failed,
+            );
             return;
         }
         let node = &self.doc.nodes[target_id];
@@ -1250,6 +1263,11 @@ impl<'doc> DocumentMutator<'doc> {
                 let Some(src) = self.doc.url.resolve_relative(raw_src) else {
                     self.doc.resource_counters.failures =
                         self.doc.resource_counters.failures.saturating_add(1);
+                    self.doc.image_observations.complete(
+                        target_id,
+                        request,
+                        crate::ImageLoadStatus::Failed,
+                    );
                     return;
                 };
                 let src_string = src.as_str();
@@ -1263,6 +1281,11 @@ impl<'doc> DocumentMutator<'doc> {
                         SpecialElementData::Image(Box::new(cached_image.clone()));
                     node.clear_layout_cache();
                     node.insert_damage(ALL_DAMAGE);
+                    self.doc.image_observations.complete(
+                        target_id,
+                        request,
+                        crate::ImageLoadStatus::Loaded,
+                    );
                     return;
                 }
 
@@ -1271,10 +1294,17 @@ impl<'doc> DocumentMutator<'doc> {
                     #[cfg(feature = "tracing")]
                     tracing::info!("Image {src_string} already pending, queueing node {target_id}");
                     if waiting_list.waiters.len() < self.doc.resource_limits.image_waiters {
-                        waiting_list.waiters.push((target_id, ImageType::Image));
+                        waiting_list
+                            .waiters
+                            .push((target_id, ImageType::Image, Some(request)));
                     } else {
                         self.doc.resource_counters.rejected =
                             self.doc.resource_counters.rejected.saturating_add(1);
+                        self.doc.image_observations.complete(
+                            target_id,
+                            request,
+                            crate::ImageLoadStatus::Failed,
+                        );
                     }
                     return;
                 }
@@ -1287,6 +1317,11 @@ impl<'doc> DocumentMutator<'doc> {
                 {
                     self.doc.resource_counters.rejected =
                         self.doc.resource_counters.rejected.saturating_add(1);
+                    self.doc.image_observations.complete(
+                        target_id,
+                        request,
+                        crate::ImageLoadStatus::Failed,
+                    );
                     return;
                 }
                 let Some(handler) = ResourceHandler::new(
@@ -1296,13 +1331,18 @@ impl<'doc> DocumentMutator<'doc> {
                     self.doc.shell_provider.clone(),
                     ImageHandler::with_limits(ImageType::Image, self.doc.resource_limits),
                 ) else {
+                    self.doc.image_observations.complete(
+                        target_id,
+                        request,
+                        crate::ImageLoadStatus::Failed,
+                    );
                     return;
                 };
                 self.doc.pending_images.insert(
                     src_string.to_string(),
                     crate::resources::PendingImage {
                         request_id: handler.request_id(),
-                        waiters: vec![(target_id, ImageType::Image)],
+                        waiters: vec![(target_id, ImageType::Image, Some(request))],
                     },
                 );
 
@@ -1311,8 +1351,12 @@ impl<'doc> DocumentMutator<'doc> {
                     self.doc.build_request(src),
                     Box::new(handler),
                 );
+                return;
             }
         }
+        self.doc
+            .image_observations
+            .complete(target_id, request, crate::ImageLoadStatus::Failed);
     }
 
     fn load_iframe(&mut self, target_id: NodeId) {
