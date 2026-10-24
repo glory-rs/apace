@@ -912,7 +912,26 @@ impl BaseDocument {
     /// it so that stale NodeIds are never dereferenced after the slot is freed.
     pub(crate) fn remove_node_from_tree(&mut self, node_id: NodeId) -> Option<Node> {
         self.clear_interaction_state_for_removed_node(node_id);
-        self.nodes.remove(node_id)
+        let node = self.nodes.remove(node_id)?;
+        // Hidden containers may skip reconstruction in the next style pass.
+        // Retire derived references using the recorded layout owners only;
+        // teardown can already have removed their DOM ancestors.
+        for container in [node.layout_parent.get(), node.oof_containing_block.get()]
+            .into_iter()
+            .flatten()
+        {
+            if let Some(parent) = self.nodes.get_mut(container) {
+                if let Some(children) = parent.layout_children.get_mut() {
+                    children.retain(|child| *child != node_id);
+                }
+                parent.hoisted_children.get_mut().retain(|child| *child != node_id);
+                parent.paint_children.get_mut().take();
+                parent.sc_contribution_cache.get_mut().clear();
+                parent.stacking_context = None;
+                parent.invalidate_layout_cache();
+            }
+        }
+        Some(node)
     }
 
     /// The nearest element ancestor of `node_id` that is still in the

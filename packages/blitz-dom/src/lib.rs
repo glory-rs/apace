@@ -55,6 +55,8 @@ mod mutator;
 pub mod profile;
 #[cfg(all(test, feature = "system-fonts"))]
 mod style_damage_tests;
+#[cfg(all(test, feature = "system-fonts"))]
+mod layout_drop_tests;
 mod query_selector;
 mod resolve;
 mod resource_queue;

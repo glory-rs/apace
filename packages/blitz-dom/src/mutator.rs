@@ -652,6 +652,12 @@ impl DocumentMutator<'_> {
     pub fn remove_and_drop_all_children(&mut self, node_id: NodeId) {
         let parent = &mut self.doc.nodes[node_id];
         let parent_is_in_doc = parent.flags.is_in_document();
+        if !parent.children.is_empty() {
+            // Restyling identical declarations does not invalidate the paint
+            // tree. Structural removal must also retire cached inline boxes
+            // and contributions to ancestor stacking contexts.
+            parent.insert_damage(ALL_DAMAGE);
+        }
 
         // TODO: make this fine grained / conditional based on ElementSelectorFlags
         if parent_is_in_doc {

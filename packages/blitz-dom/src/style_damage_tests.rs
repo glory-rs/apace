@@ -157,3 +157,95 @@ fn style_attribute_selectors_still_restyle_related_text() {
     );
     assert!(profile.snapshot().sample(Phase::TextShape).calls > 0);
 }
+
+#[test]
+fn hidden_parent_disposal_retires_cached_layout_children_before_slot_reuse() {
+    for incremental in [true, false] {
+        for resolve_hidden_first in [false, true] {
+            for remove_all in [false, true] {
+                let mut doc = BaseDocument::new(DocumentConfig {
+                    viewport: Some(Viewport::new(400, 300, 1., Default::default())),
+                    incremental: Some(incremental),
+                    ..Default::default()
+                });
+                doc.add_user_agent_stylesheet(UserAgentStylesheet::parse(
+                    "html,body{margin:0;padding:0}[data-gly-hidden]{display:none!important}",
+                ));
+                let root = doc.root_node().id;
+                let mut m = doc.mutate();
+                let html = m.create_element(qual_name!("html", html), vec![]);
+                let body = m.create_element(qual_name!("body", html), vec![]);
+                let outer = m.create_element(qual_name!("div", html), vec![]);
+                let anchor = m.create_element(qual_name!("a", html), vec![]);
+                let label = m.create_text_node("Parent");
+                let trigger = m.create_element(qual_name!("button", html), vec![]);
+                let trigger_text = m.create_text_node("Expand");
+                let panel = m.create_element(
+                    qual_name!("div", html),
+                    vec![Attribute {
+                        name: qual_name!("style"),
+                        value: "padding:12px".into(),
+                    }],
+                );
+                let control = m.create_element(qual_name!("input", html), vec![]);
+                m.append_children(root, &[html]);
+                m.append_children(html, &[body]);
+                m.append_children(body, &[outer]);
+                m.append_children(outer, &[anchor, trigger, panel]);
+                m.append_children(anchor, &[label]);
+                m.append_children(trigger, &[trigger_text]);
+                let start = m.create_comment_node("group start");
+                let end = m.create_comment_node("group end");
+                m.append_children(panel, &[start, control, end]);
+                drop(m);
+                doc.resolve(0.);
+                let expected = doc.get_client_bounding_rect(control).unwrap();
+                assert!(expected.width > 0. && expected.height > 0.);
+                let mut current = control;
+                for _ in 0..8 {
+                    if resolve_hidden_first {
+                        doc.mutate().set_attribute(
+                            panel,
+                            crate::QualName::new(None, "".into(), "data-gly-hidden".into()),
+                            "",
+                        );
+                        doc.resolve(0.);
+                    }
+                    if remove_all {
+                        doc.mutate().remove_and_drop_all_children(panel);
+                    } else {
+                        doc.mutate().remove_and_drop_node(current);
+                    }
+                    if !resolve_hidden_first {
+                        doc.mutate().set_attribute(
+                            panel,
+                            crate::QualName::new(None, "".into(), "data-gly-hidden".into()),
+                            "",
+                        );
+                    }
+                    doc.resolve(0.);
+                    assert!(doc.get_node(current).is_none());
+                    for (_, node) in doc.nodes.iter() {
+                        if let Some(children) = node.layout_children.borrow().as_ref() {
+                            assert!(children.iter().all(|id| doc.nodes.contains_key(*id)));
+                        }
+                    }
+                    let mut m = doc.mutate();
+                    let replacement = m.create_element(qual_name!("input", html), vec![]);
+                    m.append_children(panel, &[replacement]);
+                    m.clear_attribute(
+                        panel,
+                        crate::QualName::new(None, "".into(), "data-gly-hidden".into()),
+                    );
+                    drop(m);
+                    assert_ne!(replacement, current);
+                    doc.resolve(0.);
+                    let actual = doc.get_client_bounding_rect(replacement).unwrap();
+                    assert!((actual.width - expected.width).abs() < 0.01);
+                    assert!((actual.height - expected.height).abs() < 0.01);
+                    current = replacement;
+                }
+            }
+        }
+    }
+}
