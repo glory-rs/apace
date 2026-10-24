@@ -80,6 +80,9 @@ pub(crate) struct LayoutChildren {
 impl LayoutChildren {
     /// Append a single layout child.
     fn push(&mut self, child_id: NodeId, doc: &mut BaseDocument) {
+        if doc.nodes[child_id].flags.is_top_layer() {
+            return;
+        }
         self.maybe_push_anon_block(doc);
         self.children.push(child_id);
     }
@@ -87,7 +90,12 @@ impl LayoutChildren {
     /// Append all layout children in `slice`.
     fn extend(&mut self, slice: &[NodeId], doc: &mut BaseDocument) {
         self.maybe_push_anon_block(doc);
-        self.children.extend_from_slice(slice);
+        self.children.extend(
+            slice
+                .iter()
+                .copied()
+                .filter(|id| !doc.nodes[*id].flags.is_top_layer()),
+        );
     }
 
     fn maybe_push_anon_block(&mut self, doc: &mut BaseDocument) {
@@ -124,6 +132,9 @@ impl LayoutChildren {
         child_id: NodeId,
         doc: &mut BaseDocument,
     ) {
+        if doc.nodes[child_id].flags.is_top_layer() {
+            return;
+        }
         if self.anonymous_block_id.is_none() {
             self.create_anonymous_block(container_node_id, doc);
         }
@@ -190,7 +201,7 @@ fn push_children_and_pseudos(layout_children: &mut ThinVec<NodeId>, node: &Node)
     }
     layout_children.extend(node.children.iter().copied().filter(|child_id| {
         let child_node = node.with(*child_id);
-        child_node.data.kind() != NodeKind::Comment
+        child_node.data.kind() != NodeKind::Comment && !child_node.flags.is_top_layer()
     }));
     if let Some(after) = node.after() {
         layout_children.push(after);
@@ -229,6 +240,9 @@ fn push_hoisted_child(
     wrap: Option<WrapContext>,
 ) {
     let child = &doc.nodes[child_id];
+    if child.flags.is_top_layer() {
+        return;
+    }
     let child_display = child.display_style().unwrap_or(Display::inline());
     if matches!(child_display.inside(), DisplayInside::Contents) {
         collect_layout_children_with_wrap(doc, child_id, out, wrap);
@@ -282,7 +296,9 @@ fn push_non_whitespace_children_and_pseudos(layout_children: &mut ThinVec<NodeId
     }
     layout_children.extend(node.children.iter().copied().filter(|child_id| {
         let child_node = node.with(*child_id);
-        !child_node.is_whitespace_node() && child_node.data.kind() != NodeKind::Comment
+        !child_node.is_whitespace_node()
+            && child_node.data.kind() != NodeKind::Comment
+            && !child_node.flags.is_top_layer()
     }));
     if let Some(after) = node.after() {
         layout_children.push(after);
@@ -337,6 +353,9 @@ fn classify_flow_children(
     let child_ids = node.children.iter().copied().chain(pseudo_ids);
     for child_id in child_ids {
         let child = &doc.nodes[child_id];
+        if child.flags.is_top_layer() {
+            continue;
+        }
 
         // Comment nodes generate no boxes and must not affect the
         // inline-vs-block classification: an unstyled comment would
@@ -804,6 +823,9 @@ fn collect_complex_layout_children(
     needs_wrap: fn(NodeKind, DisplayOutside) -> bool,
 ) {
     doc.iter_children_and_pseudos_mut(container_node_id, |child_id, doc| {
+        if doc.nodes[child_id].flags.is_top_layer() {
+            return;
+        }
         // Get node kind (text, element, comment, etc)
         let child_node_kind = doc.nodes[child_id].data.kind();
 
@@ -989,6 +1011,9 @@ pub(crate) fn find_inline_layout_embedded_boxes(
     ) {
         let node = &mut nodes[node_id];
 
+        if node.flags.is_top_layer() {
+            return;
+        }
         // Set layout_parent for node.
         node.layout_parent.set(Some(parent_id));
 
@@ -1161,6 +1186,10 @@ pub(crate) fn build_inline_layout_into(
         parent_text_transform: &CaseTransform,
     ) {
         let node = &nodes[node_id];
+
+        if node.flags.is_top_layer() {
+            return;
+        }
 
         let style = node.primary_styles();
         let style = style.as_ref();

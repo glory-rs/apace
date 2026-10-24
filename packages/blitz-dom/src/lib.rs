@@ -78,6 +78,10 @@ mod stylo_to_parley;
 pub mod traversal;
 /// Versioned storage for the nodes of the DOM tree.
 mod tree;
+mod top_layer;
+pub use top_layer::{MAX_TOP_LAYERS, TopLayer, TopLayerConfig, TopLayerError};
+#[cfg(all(test, feature = "system-fonts"))]
+mod top_layer_tests;
 
 mod url;
 

@@ -57,10 +57,15 @@ bitflags! {
         const IS_TABLE_ROOT = 0b00000010;
         /// Whether the node is "in the document" (~= has a parent and isn't a template node)
         const IS_IN_DOCUMENT = 0b00000100;
+        /// A document-owned viewport layout/paint root. DOM and style ancestry stay intact.
+        const IS_TOP_LAYER = 0b00001000;
     }
 }
 
 impl NodeFlags {
+    pub fn is_top_layer(&self) -> bool {
+        self.contains(Self::IS_TOP_LAYER)
+    }
     #[inline(always)]
     pub fn is_inline_root(&self) -> bool {
         self.contains(Self::IS_INLINE_ROOT)
@@ -1530,7 +1535,10 @@ impl Node {
                 // against the viewport and do not scroll with it. (A fixed box
                 // whose containing block is a transformed ancestor scrolls with
                 // that ancestor like any other out-of-flow box.)
-                if child_position == taffy::Position::Fixed && self.containing_block().is_none() {
+                if child_position == taffy::Position::Fixed
+                    && self.containing_block().is_none()
+                    && !self.flags.is_top_layer()
+                {
                     child_x -= self.scroll_offset().x as f32;
                     child_y -= self.scroll_offset().y as f32;
                     let viewport_scroll = self.tree().viewport_scroll();
@@ -1676,6 +1684,9 @@ impl Node {
     /// `oof_containing_block` for a hoisted out-of-flow box, otherwise the
     /// `layout_parent`.
     pub fn containing_block(&self) -> Option<NodeId> {
+        if self.flags.is_top_layer() {
+            return None;
+        }
         self.oof_containing_block
             .get()
             .or_else(|| self.layout_parent.get())
@@ -1685,6 +1696,13 @@ impl Node {
     pub fn absolute_position(&self, x: f32, y: f32) -> crate::util::Point<f32> {
         let x = x + self.final_layout().location.x - self.scroll_offset().x as f32;
         let y = y + self.final_layout().location.y - self.scroll_offset().y as f32;
+        if self.flags.is_top_layer() {
+            let scroll = self.tree().viewport_scroll();
+            return crate::util::Point {
+                x: x + scroll.x as f32,
+                y: y + scroll.y as f32,
+            };
+        }
 
         // Recurse up the positioning hierarchy
         self.containing_block()

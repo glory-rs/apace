@@ -384,6 +384,10 @@ impl BaseDocument {
             let node = &self.nodes[id];
             pos.x += node.unrounded_layout().location.x - node.scroll_offset().x as f32;
             pos.y += node.unrounded_layout().location.y - node.scroll_offset().y as f32;
+            if node.flags.is_top_layer() {
+                pos.x += self.viewport_scroll().x as f32;
+                pos.y += self.viewport_scroll().y as f32;
+            }
             has_vertical |= node.layout_data().writing_mode.is_vertical();
             current = node.containing_block();
         }
@@ -413,10 +417,22 @@ impl BaseDocument {
                 width: viewport.width.to_f32_px(),
                 height: viewport.height.to_f32_px(),
             };
-            let wm = root_id.map_or(WritingMode::empty(), |root| {
-                self.nodes[root].layout_data().writing_mode
-            });
-            return (crate::util::Point { x: 0.0, y: 0.0 }, wm, viewport);
+            let wm = if node.flags.is_top_layer() {
+                node.writing_mode()
+            } else {
+                root_id.map_or(WritingMode::empty(), |root| {
+                    self.nodes[root].layout_data().writing_mode
+                })
+            };
+            let pos = if node.flags.is_top_layer() {
+                crate::util::Point {
+                    x: self.viewport_scroll().x as f32,
+                    y: self.viewport_scroll().y as f32,
+                }
+            } else {
+                crate::util::Point { x: 0.0, y: 0.0 }
+            };
+            return (pos, wm, viewport);
         };
 
         let placer = &self.nodes[placer_id];

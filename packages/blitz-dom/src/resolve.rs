@@ -127,6 +127,12 @@ impl BaseDocument {
         // Resolve transforms
         let transform_span = self.profile_span(Phase::Transforms);
         self.resolve_transforms(root_node_id);
+        for index in 0..self.top_layers.len() {
+            if !self.top_layer_is_rendered(self.top_layers[index].node_id) {
+                continue;
+            }
+            self.resolve_transforms(self.top_layers[index].node_id);
+        }
         timer.record_time("transform");
         // Only the current editor needs caret scrolling/IME placement after
         // value, purpose, DPI or viewport changes. Never walk all inputs.
@@ -140,6 +146,12 @@ impl BaseDocument {
         // this frame's transforms are picked up, and before damage is cleared.
         let paint_tree_span = self.profile_span(Phase::PaintTree);
         self.build_paint_tree(root_node_id);
+        for index in 0..self.top_layers.len() {
+            if !self.top_layer_is_rendered(self.top_layers[index].node_id) {
+                continue;
+            }
+            self.build_paint_tree(self.top_layers[index].node_id);
+        }
         drop(paint_tree_span);
         timer.record_time("paint_tree");
 
@@ -275,6 +287,15 @@ impl BaseDocument {
     /// Ensure that the layout_children field is populated for all nodes
     pub fn resolve_layout_children(&mut self) {
         resolve_layout_children_recursive(self, self.root_node().id);
+        for index in 0..self.top_layers.len() {
+            let id = self.top_layers[index].node_id;
+            if !self.top_layer_is_rendered(id) {
+                continue;
+            }
+            resolve_layout_children_recursive(self, id);
+            self.nodes[id].layout_parent.set(None);
+            self.nodes[id].oof_containing_block.set(None);
+        }
 
         fn resolve_layout_children_recursive(doc: &mut BaseDocument, node_id: NodeId) {
             // Anonymous blocks and pseudo-elements can be removed from the slab
@@ -300,7 +321,8 @@ impl BaseDocument {
 
                 let mut collected = LayoutChildren::default();
                 collect_layout_children(doc, node_id, &mut collected);
-                let layout_children = collected.children;
+                let mut layout_children = collected.children;
+                layout_children.retain(|id| !doc.nodes[*id].flags.is_top_layer());
                 doc.nodes[node_id].anonymous_blocks = collected.anonymous_blocks;
 
                 // Recurse into newly collected layout children
@@ -466,6 +488,12 @@ impl BaseDocument {
         };
 
         let root_element_id = crate::taffy_node_id(self.root_element().id);
+        let layers: Vec<_> = self
+            .top_layers
+            .iter()
+            .map(|layer| layer.node_id)
+            .filter(|id| self.top_layer_is_rendered(*id))
+            .collect();
 
         // println!("\n\nRESOLVE LAYOUT\n===========\n");
 
@@ -484,6 +512,32 @@ impl BaseDocument {
         state.physicalise_and_round_layout(root_element_id);
         #[cfg(not(feature = "writing-mode"))]
         taffy::round_layout(&mut state, root_element_id);
+        for id in layers {
+            let id = crate::taffy_node_id(id);
+            #[cfg(feature = "writing-mode")]
+            {
+                state.layout_wm = state.layout_wm_of(crate::dom_node_id(id));
+            }
+            #[cfg(feature = "writing-mode")]
+            let layer_space = if state.layout_wm.is_vertical() {
+                taffy::Size {
+                    width: AvailableSpace::Definite(size.height.to_f32_px()),
+                    height: AvailableSpace::Definite(size.width.to_f32_px()),
+                }
+            } else {
+                taffy::Size {
+                    width: AvailableSpace::Definite(size.width.to_f32_px()),
+                    height: AvailableSpace::Definite(size.height.to_f32_px()),
+                }
+            };
+            #[cfg(not(feature = "writing-mode"))]
+            let layer_space = available_space;
+            taffy::compute_root_layout(&mut state, id, layer_space);
+            #[cfg(feature = "writing-mode")]
+            state.physicalise_and_round_layout(id);
+            #[cfg(not(feature = "writing-mode"))]
+            taffy::round_layout(&mut state, id);
+        }
 
         // println!("\n\n");
         // taffy::print_tree(self, root_node_id)

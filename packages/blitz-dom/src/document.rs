@@ -267,6 +267,7 @@ pub struct BaseDocument {
 
     /// The id of the root node (a Document node)
     pub(crate) root_node_id: NodeId,
+    pub(crate) top_layers: Vec<crate::TopLayer>,
 
     // Stylo
     /// The Stylo engine
@@ -482,6 +483,7 @@ impl BaseDocument {
             guard,
             nodes,
             root_node_id: NodeId::default(),
+            top_layers: Vec::new(),
             stylist,
             animations: DocumentAnimationSet::default(),
             snapshots,
@@ -913,6 +915,7 @@ impl BaseDocument {
     /// (hover/active/focus/mousedown/selection/drag/scrollbar) that references
     /// it so that stale NodeIds are never dereferenced after the slot is freed.
     pub(crate) fn remove_node_from_tree(&mut self, node_id: NodeId) -> Option<Node> {
+        self.retire_top_layer(node_id);
         self.image_observations.retire(node_id);
         self.clear_interaction_state_for_removed_node(node_id);
         let node = self.nodes.remove(node_id)?;
@@ -927,7 +930,10 @@ impl BaseDocument {
                 if let Some(children) = parent.layout_children.get_mut() {
                     children.retain(|child| *child != node_id);
                 }
-                parent.hoisted_children.get_mut().retain(|child| *child != node_id);
+                parent
+                    .hoisted_children
+                    .get_mut()
+                    .retain(|child| *child != node_id);
                 parent.paint_children.get_mut().take();
                 parent.sc_contribution_cache.get_mut().clear();
                 parent.stacking_context = None;
@@ -1579,7 +1585,8 @@ impl BaseDocument {
                 }
             }
             if let Some(request) = request {
-                self.image_observations.complete(node_id, request, crate::ImageLoadStatus::Loaded);
+                self.image_observations
+                    .complete(node_id, request, crate::ImageLoadStatus::Loaded);
             }
         }
     }
@@ -1738,7 +1745,8 @@ impl BaseDocument {
             return None;
         }
 
-        let Some(hit) = self.hit(x, y) else {
+        let scroll = self.viewport_scroll();
+        let Some(hit) = self.hit(x + scroll.x as f32, y + scroll.y as f32) else {
             // The point is within the viewport but over no box: the root element
             // (which covers the viewport in an HTML document) is the hit target
             return self.try_root_element().map(|root| root.id);
@@ -2008,6 +2016,36 @@ impl BaseDocument {
             return (None, None);
         }
         let mut scrollbar = None;
+        let scroll = self.viewport_scroll();
+        let client_x = x - scroll.x as f32;
+        let client_y = y - scroll.y as f32;
+        for layer in self.top_layers.iter().rev() {
+            if !self.top_layer_is_rendered(layer.node_id) {
+                continue;
+            }
+            let Some(node) = self.nodes.get(layer.node_id) else {
+                continue;
+            };
+            if let Some(hit) = node.hit_inner(
+                client_x,
+                client_y,
+                self.viewport().scale_f64(),
+                &mut scrollbar,
+            ) {
+                return (Some(hit), scrollbar);
+            }
+            if layer.config.modal {
+                return (
+                    Some(HitResult {
+                        node_id: layer.node_id,
+                        is_text: false,
+                        x: client_x - node.final_layout().location.x,
+                        y: client_y - node.final_layout().location.y,
+                    }),
+                    None,
+                );
+            }
+        }
         let hit = self
             .root_element()
             .hit_inner(x, y, self.viewport().scale_f64(), &mut scrollbar);
@@ -2455,6 +2493,10 @@ impl BaseDocument {
             let node = &self.nodes[id];
             pos.x += node.unrounded_layout().location.x - node.scroll_offset().x as f32;
             pos.y += node.unrounded_layout().location.y - node.scroll_offset().y as f32;
+            if node.flags.is_top_layer() {
+                pos.x += self.viewport_scroll().x as f32;
+                pos.y += self.viewport_scroll().y as f32;
+            }
             current = node.containing_block();
         }
         (pos, *self.nodes[node_id].unrounded_layout())
@@ -2462,6 +2504,22 @@ impl BaseDocument {
 
     /// Computes the size and position of the `Node` relative to the viewport
     pub fn get_client_bounding_rect(&self, node_id: NodeId) -> Option<BoundingRect> {
+        let mut ancestor = Some(node_id);
+        while let Some(id) = ancestor {
+            let node = self.get_node(id)?;
+            if node.flags.is_top_layer() {
+                if !self.top_layer_is_rendered(id) {
+                    return Some(BoundingRect {
+                        x: 0.,
+                        y: 0.,
+                        width: 0.,
+                        height: 0.,
+                    });
+                }
+                break;
+            }
+            ancestor = node.parent;
+        }
         // Non-atomic inline elements have no layout box of their own: return
         // the union of their per-line-box fragment rects.
         if let Some(rects) = self.inline_fragment_rects(node_id) {

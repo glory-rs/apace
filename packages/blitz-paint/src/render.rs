@@ -242,6 +242,27 @@ impl<'dom, 'a> BlitzDomPainter<'dom, 'a> {
             viewport_clip_rect,
         );
 
+        // Top layers are independent viewport paint roots, escaping logical
+        // ancestors' transforms, clips and opacity without reparenting the DOM.
+        for layer in self.dom.as_ref().top_layers() {
+            if !self.dom.as_ref().top_layer_is_rendered(layer.node_id) {
+                continue;
+            }
+            if let Some(color) = layer.config.backdrop {
+                let rect = Rect::from_origin_size(
+                    (self.initial_x, self.initial_y),
+                    (self.width as f64, self.height as f64),
+                );
+                scene.fill(Fill::NonZero, Affine::IDENTITY, color, None, &rect);
+            }
+            self.render_element(
+                scene,
+                layer.node_id,
+                Affine::translate((self.initial_x, self.initial_y)),
+                viewport_clip_rect,
+            );
+        }
+
         // Render debug overlay
         if self.dom.devtools().highlight_hover {
             if let Some(node_id) = self.dom.as_ref().get_hover_node_id() {
