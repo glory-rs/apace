@@ -57,6 +57,8 @@ pub mod profile;
 mod style_damage_tests;
 #[cfg(all(test, feature = "system-fonts"))]
 mod layout_drop_tests;
+#[cfg(test)]
+mod layout_move_tests;
 mod query_selector;
 mod resolve;
 mod resource_queue;

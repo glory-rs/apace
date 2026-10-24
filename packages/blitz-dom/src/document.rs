@@ -926,21 +926,67 @@ impl BaseDocument {
             .into_iter()
             .flatten()
         {
-            if let Some(parent) = self.nodes.get_mut(container) {
-                if let Some(children) = parent.layout_children.get_mut() {
-                    children.retain(|child| *child != node_id);
-                }
-                parent
-                    .hoisted_children
-                    .get_mut()
-                    .retain(|child| *child != node_id);
-                parent.paint_children.get_mut().take();
-                parent.sc_contribution_cache.get_mut().clear();
-                parent.stacking_context = None;
-                parent.invalidate_layout_cache();
-            }
+            self.retire_layout_reference(container, node_id);
         }
         Some(node)
+    }
+
+    /// Remove a derived child edge without disposing the real DOM node or its
+    /// editor/interaction state. A hidden owner may not be reconstructed during
+    /// the next resolve, so damage on its DOM ancestor alone is insufficient.
+    fn retire_layout_reference(&mut self, container: NodeId, node_id: NodeId) {
+        if let Some(parent) = self.nodes.get_mut(container) {
+            if let Some(children) = parent.layout_children.get_mut() {
+                children.retain(|child| *child != node_id);
+            }
+            // An anonymous block's children are a derived list, not DOM
+            // ownership. Retaining a moved child here could reintroduce it on
+            // reconstruction. Real DOM lists are changed only by the mutator.
+            if parent.is_anonymous() {
+                parent.children.retain(|child| *child != node_id);
+            }
+            parent
+                .hoisted_children
+                .get_mut()
+                .retain(|child| *child != node_id);
+            parent.paint_children.get_mut().take();
+            parent.sc_contribution_cache.get_mut().clear();
+            parent.stacking_context = None;
+            parent.invalidate_layout_cache();
+        }
+    }
+
+    /// Retire only layout edges crossing the boundary of a moving DOM subtree.
+    /// Internal box relationships stay usable; flattened contents and hoisted
+    /// out-of-flow descendants also lose their external old owners. This walks
+    /// only the actual moved subtree and owner ancestry, never unrelated nodes.
+    pub(crate) fn retire_moved_layout_references(&mut self, root: NodeId) {
+        fn visit(doc: &mut BaseDocument, root: NodeId, id: NodeId) {
+            let layout_parent = doc.nodes[id].layout_parent.get();
+            let oof_parent = doc.nodes[id].oof_containing_block.get();
+            for (owner, out_of_flow) in [(layout_parent, false), (oof_parent, true)] {
+                let Some(owner) = owner else { continue };
+                let mut ancestor = Some(owner);
+                let mut internal = false;
+                while let Some(current) = ancestor {
+                    if current == root {
+                        internal = true;
+                        break;
+                    }
+                    ancestor = doc.nodes.get(current).and_then(|node| node.parent);
+                }
+                if !internal {
+                    doc.retire_layout_reference(owner, id);
+                    if out_of_flow {
+                        doc.nodes[id].oof_containing_block.set(None);
+                    } else {
+                        doc.nodes[id].layout_parent.set(None);
+                    }
+                }
+            }
+            doc.iter_children_and_pseudos_mut(id, |child, doc| visit(doc, root, child));
+        }
+        visit(self, root, root);
     }
 
     /// The nearest element ancestor of `node_id` that is still in the

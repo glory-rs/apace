@@ -747,6 +747,13 @@ impl DocumentMutator<'_> {
         // parent's child list, and anchor indices would be computed against a
         // child list that still contains the moved nodes.
         for child_id in child_ids.iter().copied() {
+            let child = &self.doc.nodes[child_id];
+            if child.parent.is_some()
+                || child.layout_parent.get().is_some()
+                || child.oof_containing_block.get().is_some()
+            {
+                self.doc.retire_moved_layout_references(child_id);
+            }
             let child = &mut self.doc.nodes[child_id];
             let child_was_in_doc = child.flags.is_in_document();
             self.mutations_occurred |= child_was_in_doc;
