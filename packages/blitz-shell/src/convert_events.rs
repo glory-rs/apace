@@ -38,11 +38,6 @@ pub(crate) fn winit_ime_to_blitz(event: Ime) -> BlitzImeEvent {
             before_bytes,
             after_bytes,
         },
-        _ => {
-            #[cfg(feature = "tracing")]
-            tracing::error!("unsupported Ime variant: {event:?}");
-            BlitzImeEvent::Disabled
-        }
     }
 }
 
@@ -175,5 +170,43 @@ pub(crate) fn winit_key_to_kbt_key(winit_key: &WinitKey) -> Key {
         WinitKey::Character(c) => Key::Character(c.to_string()),
         WinitKey::Unidentified(_) => Key::Named(NamedKey::Unidentified),
         WinitKey::Dead(_) => Key::Named(NamedKey::Dead),
+    }
+}
+
+#[cfg(test)]
+mod ime_tests {
+    use super::*;
+
+    #[test]
+    fn winit_ime_events_preserve_text_and_byte_offsets() {
+        assert!(matches!(
+            winit_ime_to_blitz(Ime::Enabled),
+            BlitzImeEvent::Enabled
+        ));
+        assert!(matches!(
+            winit_ime_to_blitz(Ime::Disabled),
+            BlitzImeEvent::Disabled
+        ));
+        match winit_ime_to_blitz(Ime::Preedit("a中".into(), Some((1, 4)))) {
+            BlitzImeEvent::Preedit(text, cursor) => {
+                assert_eq!(text, "a中");
+                assert_eq!(cursor, Some((1, 4)));
+            }
+            event => panic!("Unexpected preedit conversion: {event:?}"),
+        }
+        assert!(matches!(
+            winit_ime_to_blitz(Ime::Commit("中".into())),
+            BlitzImeEvent::Commit(text) if text == "中"
+        ));
+        assert!(matches!(
+            winit_ime_to_blitz(Ime::DeleteSurrounding {
+                before_bytes: 3,
+                after_bytes: 1
+            }),
+            BlitzImeEvent::DeleteSurrounding {
+                before_bytes: 3,
+                after_bytes: 1
+            }
+        ));
     }
 }
