@@ -744,6 +744,9 @@ impl Node {
                 blitz_traits::shell::ImePurpose::Normal
             });
             shell_provider.set_ime_enabled(true);
+            if let Some(input) = self.element_data().and_then(|e| e.text_input_data()) {
+                input.sync_ime_context(shell_provider.as_ref());
+            }
             if let Some((x, y, width, height)) = self.text_input_ime_cursor_area() {
                 shell_provider.set_ime_cursor_area(x, y, width, height);
             }

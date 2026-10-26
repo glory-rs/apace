@@ -94,6 +94,8 @@ pub struct BlitzShellProvider {
     ime_password: AtomicBool,
     ime_enabled: AtomicBool,
     ime_area: Mutex<Option<[f32; 4]>>,
+    #[cfg(target_os = "ios")]
+    ime_context: Mutex<Option<(String, usize, usize)>>,
 }
 impl BlitzShellProvider {
     pub fn new(window: Arc<dyn Window>, proxy: BlitzShellProxy) -> Self {
@@ -103,6 +105,8 @@ impl BlitzShellProvider {
             ime_password: AtomicBool::new(false),
             ime_enabled: AtomicBool::new(false),
             ime_area: Mutex::new(None),
+            #[cfg(target_os = "ios")]
+            ime_context: Mutex::new(None),
         }
     }
     fn ime_data(&self) -> ImeRequestData {
@@ -146,19 +150,26 @@ impl ShellProvider for BlitzShellProvider {
     }
     fn set_ime_enabled(&self, is_enabled: bool) {
         *self.ime_area.lock().unwrap() = None;
+        #[cfg(target_os = "ios")]
+        {
+            *self.ime_context.lock().unwrap() = None;
+        }
         if is_enabled {
             let data = self.ime_data().with_cursor_area(
                 LogicalPosition::new(0., 0.).into(),
                 LogicalSize::new(0., 0.).into(),
             );
+            #[cfg(target_os = "ios")]
+            let data = data.with_surrounding_text(
+                winit::window::ImeSurroundingText::new(String::new(), 0, 0).unwrap(),
+            );
+            let capabilities = ImeCapabilities::new()
+                .with_hint_and_purpose()
+                .with_cursor_area();
+            #[cfg(target_os = "ios")]
+            let capabilities = capabilities.with_surrounding_text();
             let result = self.window.request_ime_update(ImeRequest::Enable(
-                ImeEnableRequest::new(
-                    ImeCapabilities::new()
-                        .with_hint_and_purpose()
-                        .with_cursor_area(),
-                    data,
-                )
-                .unwrap(),
+                ImeEnableRequest::new(capabilities, data).unwrap(),
             ));
             self.ime_enabled.store(result.is_ok(), Ordering::Relaxed);
         } else {
@@ -185,6 +196,38 @@ impl ShellProvider for BlitzShellProvider {
                 LogicalSize::new(width, height).into(),
             ),
         ));
+    }
+
+    fn supports_ime_surrounding_text(&self) -> bool {
+        cfg!(target_os = "ios")
+    }
+    fn set_ime_surrounding_text(&self, text: &str, cursor: usize, anchor: usize) {
+        #[cfg(target_os = "ios")]
+        {
+            if !self.ime_enabled.load(Ordering::Relaxed) {
+                return;
+            }
+            let Ok(context) =
+                winit::window::ImeSurroundingText::new(text.to_owned(), cursor, anchor)
+            else {
+                return;
+            };
+            {
+                let mut previous = self.ime_context.lock().unwrap();
+                if previous
+                    .as_ref()
+                    .is_some_and(|(s, c, a)| s == text && *c == cursor && *a == anchor)
+                {
+                    return;
+                }
+                *previous = Some((text.to_owned(), cursor, anchor));
+            }
+            let _ = self.window.request_ime_update(ImeRequest::Update(
+                ImeRequestData::default().with_surrounding_text(context),
+            ));
+        }
+        #[cfg(not(target_os = "ios"))]
+        let _ = (text, cursor, anchor);
     }
 
     fn request_window_close(&self) {

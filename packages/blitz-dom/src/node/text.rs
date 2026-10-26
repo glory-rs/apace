@@ -88,6 +88,34 @@ impl Clone for TextInputData {
 }
 
 impl TextInputData {
+    /// Export only the focused editor's bounded committed excerpt. Passwords
+    /// export an empty context; native marked text is never overwritten by an
+    /// acknowledgement of the committed application value.
+    pub(crate) fn sync_ime_context(&self, provider: &dyn ShellProvider) {
+        if !provider.supports_ime_surrounding_text() || self.editor.is_composing() {
+            return;
+        }
+        let text = self.editor.raw_text();
+        let selection = self.editor.raw_selection();
+        let anchor = selection.anchor().index();
+        let cursor = selection.focus().index();
+        let low = anchor.min(cursor);
+        let high = anchor.max(cursor);
+        const BUDGET: usize = 3999;
+        if self.is_password() || high - low > BUDGET {
+            provider.set_ime_surrounding_text("", 0, 0);
+            return;
+        }
+        let mut start = low.saturating_sub((BUDGET - (high - low)) / 2);
+        while !text.is_char_boundary(start) {
+            start += 1;
+        }
+        let mut end = text.len().min(start + BUDGET);
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        provider.set_ime_surrounding_text(&text[start..end], cursor - start, anchor - start);
+    }
     pub fn new(is_multiline: bool) -> Self {
         let editor = Box::new(parley::PlainEditor::new(16.0));
         Self {
@@ -1116,3 +1144,7 @@ impl TextInputData {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "ime_context_tests.rs"]
+mod ime_context_tests;

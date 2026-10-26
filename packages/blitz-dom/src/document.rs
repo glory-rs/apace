@@ -595,6 +595,7 @@ impl BaseDocument {
                     blitz_traits::shell::ImePurpose::Normal
                 });
                 self.shell_provider.set_ime_enabled(true);
+                input.sync_ime_context(self.shell_provider.as_ref());
                 if let Some((x, y, width, height)) = node.text_input_ime_cursor_area() {
                     self.shell_provider.set_ime_cursor_area(x, y, width, height);
                 }
@@ -2764,6 +2765,7 @@ impl BaseDocument {
                     .element_data()
                     .and_then(|element| element.text_input_data())
                 {
+                    input.sync_ime_context(self.shell_provider.as_ref());
                     self.shell_provider.set_ime_purpose(if input.is_password() {
                         blitz_traits::shell::ImePurpose::Password
                     } else {

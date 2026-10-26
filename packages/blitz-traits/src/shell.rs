@@ -36,6 +36,15 @@ pub trait ShellProvider: Send + Sync + 'static {
         let _ = width;
         let _ = height;
     }
+    /// Opt into bounded surrounding text for native IME. The default exports no
+    /// document text; hosts must opt in explicitly and passwords stay excluded.
+    fn supports_ime_surrounding_text(&self) -> bool {
+        false
+    }
+    /// UTF-8 excerpt (under 4000 bytes), with validated byte cursor/anchor.
+    fn set_ime_surrounding_text(&self, text: &str, cursor: usize, anchor: usize) {
+        let _ = (text, cursor, anchor);
+    }
     fn get_clipboard_text(&self) -> Result<String, ClipboardError> {
         Err(ClipboardError)
     }
