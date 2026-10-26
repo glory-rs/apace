@@ -660,12 +660,16 @@ pub(crate) fn handle_click(
             match el.name.local {
                 local_name!("input") if el.attr(local_name!("type")) == Some("checkbox") => {
                     let mut is_checked = false;
-                    doc.snapshot_node_and(node_id, ElementState::CHECKED, |node| {
-                        if let Some(el) = node.element_data_mut() {
-                            is_checked = BaseDocument::toggle_checkbox(el);
-                        }
-                        node.mark_ancestors_dirty();
-                    });
+                    doc.snapshot_node_and(
+                        node_id,
+                        ElementState::CHECKED | ElementState::INDETERMINATE,
+                        |node| {
+                            if let Some(el) = node.element_data_mut() {
+                                is_checked = BaseDocument::toggle_checkbox(el);
+                            }
+                            node.mark_ancestors_dirty();
+                        },
+                    );
                     let value = is_checked.to_string();
                     dispatch_event(DomEvent::new(
                         node_id,

@@ -726,6 +726,7 @@ impl BaseDocument {
             return false;
         };
         let checked = !is_checked;
+        el.set_checkbox_input_indeterminate(false);
         el.set_checkbox_input_checked(checked);
 
         checked

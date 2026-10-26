@@ -484,6 +484,9 @@ impl selectors::Element for BlitzNode<'_> {
                 .element_state()
                 .intersects(ElementState::VISITED_OR_UNVISITED),
             NonTSPseudoClass::Checked => self.element_state().contains(ElementState::CHECKED),
+            NonTSPseudoClass::Indeterminate => {
+                self.element_state().contains(ElementState::INDETERMINATE)
+            }
             NonTSPseudoClass::Valid => false,
             NonTSPseudoClass::Invalid => false,
             NonTSPseudoClass::Defined => false,
@@ -496,7 +499,6 @@ impl selectors::Element for BlitzNode<'_> {
             NonTSPseudoClass::FocusVisible => false,
             NonTSPseudoClass::Fullscreen => false,
             NonTSPseudoClass::Hover => self.element_state().contains(ElementState::HOVER),
-            NonTSPseudoClass::Indeterminate => false,
             NonTSPseudoClass::Lang(_) => false,
             NonTSPseudoClass::CustomState(_) => false,
             NonTSPseudoClass::Link => self.element_state().contains(ElementState::UNVISITED),

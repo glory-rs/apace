@@ -95,6 +95,33 @@ impl DocumentMutator<'_> {
 
     // Query methods
 
+    /// Set the live checkbox property independently of its checked value. This
+    /// also works before attachment; unsupported/retired nodes are rejected.
+    pub fn set_input_indeterminate(&mut self, node_id: NodeId, value: bool) -> bool {
+        let Some(previous) = self
+            .doc
+            .nodes
+            .get(node_id)
+            .and_then(|node| node.element_data())
+            .and_then(ElementData::checkbox_input_indeterminate)
+        else {
+            return false;
+        };
+        if previous == value {
+            return true;
+        }
+        self.mutations_occurred = true;
+        self.doc
+            .snapshot_node_and(node_id, style_dom::ElementState::INDETERMINATE, |node| {
+                node.element_data_mut()
+                    .unwrap()
+                    .set_checkbox_input_indeterminate(value);
+                node.mark_ancestors_dirty();
+                node.insert_damage(ALL_DAMAGE);
+            });
+        true
+    }
+
     pub fn node_has_parent(&self, node_id: NodeId) -> bool {
         self.doc.nodes[node_id].parent.is_some()
     }
@@ -341,6 +368,11 @@ impl DocumentMutator<'_> {
 
         element.attrs.set(name.clone(), value);
         if name.local == local_name!("type") && element.name.local == local_name!("input") {
+            if value != "checkbox" {
+                element
+                    .element_state
+                    .remove(style_dom::ElementState::INDETERMINATE);
+            }
             if let Some(input) = element.text_input_data_mut() {
                 input.set_password(value == "password");
                 input.refresh_display_config(
@@ -505,6 +537,9 @@ impl DocumentMutator<'_> {
 
         // Update text input value
         if name.local == local_name!("type") && element.name.local == local_name!("input") {
+            element
+                .element_state
+                .remove(style_dom::ElementState::INDETERMINATE);
             if let Some(input) = element.text_input_data_mut() {
                 input.set_password(false);
             }

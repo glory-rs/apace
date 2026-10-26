@@ -174,3 +174,6 @@ pub fn build_single_font_ctx(font_data: &[u8]) -> FontContext {
     }
     ctx
 }
+
+#[cfg(test)]
+mod indeterminate_tests;

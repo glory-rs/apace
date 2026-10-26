@@ -598,6 +598,19 @@ impl ElementData {
         }
     }
 
+    /// The independent HTML checkbox property, not an ARIA attribute or checkedness.
+    pub fn checkbox_input_indeterminate(&self) -> Option<bool> {
+        (self.name.local == local_name!("input")
+            && self.attr(local_name!("type")) == Some("checkbox"))
+        .then(|| self.element_state.contains(ElementState::INDETERMINATE))
+    }
+
+    pub fn set_checkbox_input_indeterminate(&mut self, value: bool) {
+        if self.checkbox_input_indeterminate().is_some() {
+            self.element_state.set(ElementState::INDETERMINATE, value);
+        }
+    }
+
     pub fn checkbox_input_checked_mut(&mut self) -> Option<&mut bool> {
         match self.special_data {
             SpecialElementData::CheckboxInput(ref mut checked) => Some(checked),

@@ -34,7 +34,15 @@ impl ElementCx<'_, '_> {
 
         match type_attr {
             Some("checkbox") => {
-                draw_checkbox(scene, checked, frame, self.transform, accent_color, scale);
+                draw_checkbox(
+                    scene,
+                    checked,
+                    self.element.checkbox_input_indeterminate().unwrap_or(false),
+                    frame,
+                    self.transform,
+                    accent_color,
+                    scale,
+                );
             }
             Some("radio") => {
                 let center = frame.center();
@@ -48,18 +56,24 @@ impl ElementCx<'_, '_> {
 fn draw_checkbox(
     scene: &mut impl PaintScene,
     checked: bool,
+    indeterminate: bool,
     frame: RoundedRect,
     transform: Affine,
     accent_color: Color,
     scale: f64,
 ) {
-    if checked {
+    if checked || indeterminate {
         scene.fill(Fill::NonZero, transform, accent_color, None, &frame);
         //Tick code derived from masonry
         let mut path = BezPath::new();
-        path.move_to((2.0, 9.0));
-        path.line_to((6.0, 13.0));
-        path.line_to((14.0, 2.0));
+        if indeterminate {
+            path.move_to((3.0, 8.0));
+            path.line_to((13.0, 8.0));
+        } else {
+            path.move_to((2.0, 9.0));
+            path.line_to((6.0, 13.0));
+            path.line_to((14.0, 2.0));
+        }
 
         path.apply_affine(Affine::translate(Vec2 { x: 2.0, y: 1.0 }).then_scale(scale));
 
