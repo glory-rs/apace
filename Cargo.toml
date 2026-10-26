@@ -134,7 +134,7 @@ svgtypes = "0.16.1" # Should match usvg's version
 
 # Windowing & Input
 raw-window-handle = "0.6.0"
-winit = { git = "https://github.com/glory-rs/winit", rev = "edfaacd7c88feed241d12f7b2bb6b61271e513c4", version = "=0.31.0-beta.4" }
+winit = { git = "https://github.com/glory-rs/winit", rev = "64eb17964df8d15c3733f2e2e5f1004cd21d00f8", version = "=0.31.0-beta.4" }
 accesskit = "0.25"
 arboard = { version = "3.4.1", default-features = false }
 rfd = { version = "0.17.1", default-features = false }

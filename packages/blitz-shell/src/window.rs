@@ -636,7 +636,7 @@ impl<Rend: WindowRenderer> View<Rend> {
                 inner.viewport_mut().color_scheme = color_scheme;
             }
             WindowEvent::Ime(ime_event) => {
-                #[cfg(target_os = "ios")]
+                #[cfg(any(target_os = "ios", all(target_os = "android", feature = "android-game-activity")))]
                 {
                     let provider = self.doc.inner().shell_provider.clone();
                     provider.invalidate_ime_context();

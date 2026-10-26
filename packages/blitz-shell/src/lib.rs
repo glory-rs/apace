@@ -94,7 +94,10 @@ pub struct BlitzShellProvider {
     ime_password: AtomicBool,
     ime_enabled: AtomicBool,
     ime_area: Mutex<Option<[f32; 4]>>,
-    #[cfg(target_os = "ios")]
+    #[cfg(any(
+        target_os = "ios",
+        all(target_os = "android", feature = "android-game-activity")
+    ))]
     ime_context: Mutex<Option<(String, usize, usize)>>,
 }
 impl BlitzShellProvider {
@@ -105,7 +108,10 @@ impl BlitzShellProvider {
             ime_password: AtomicBool::new(false),
             ime_enabled: AtomicBool::new(false),
             ime_area: Mutex::new(None),
-            #[cfg(target_os = "ios")]
+            #[cfg(any(
+                target_os = "ios",
+                all(target_os = "android", feature = "android-game-activity")
+            ))]
             ime_context: Mutex::new(None),
         }
     }
@@ -150,7 +156,10 @@ impl ShellProvider for BlitzShellProvider {
     }
     fn set_ime_enabled(&self, is_enabled: bool) {
         *self.ime_area.lock().unwrap() = None;
-        #[cfg(target_os = "ios")]
+        #[cfg(any(
+            target_os = "ios",
+            all(target_os = "android", feature = "android-game-activity")
+        ))]
         {
             *self.ime_context.lock().unwrap() = None;
         }
@@ -159,14 +168,20 @@ impl ShellProvider for BlitzShellProvider {
                 LogicalPosition::new(0., 0.).into(),
                 LogicalSize::new(0., 0.).into(),
             );
-            #[cfg(target_os = "ios")]
+            #[cfg(any(
+                target_os = "ios",
+                all(target_os = "android", feature = "android-game-activity")
+            ))]
             let data = data.with_surrounding_text(
                 winit::window::ImeSurroundingText::new(String::new(), 0, 0).unwrap(),
             );
             let capabilities = ImeCapabilities::new()
                 .with_hint_and_purpose()
                 .with_cursor_area();
-            #[cfg(target_os = "ios")]
+            #[cfg(any(
+                target_os = "ios",
+                all(target_os = "android", feature = "android-game-activity")
+            ))]
             let capabilities = capabilities.with_surrounding_text();
             let result = self.window.request_ime_update(ImeRequest::Enable(
                 ImeEnableRequest::new(capabilities, data).unwrap(),
@@ -199,16 +214,25 @@ impl ShellProvider for BlitzShellProvider {
     }
 
     fn invalidate_ime_context(&self) {
-        #[cfg(target_os = "ios")]
+        #[cfg(any(
+            target_os = "ios",
+            all(target_os = "android", feature = "android-game-activity")
+        ))]
         {
             *self.ime_context.lock().unwrap() = None;
         }
     }
     fn supports_ime_surrounding_text(&self) -> bool {
-        cfg!(target_os = "ios")
+        cfg!(any(
+            target_os = "ios",
+            all(target_os = "android", feature = "android-game-activity")
+        ))
     }
     fn set_ime_surrounding_text(&self, text: &str, cursor: usize, anchor: usize) {
-        #[cfg(target_os = "ios")]
+        #[cfg(any(
+            target_os = "ios",
+            all(target_os = "android", feature = "android-game-activity")
+        ))]
         {
             if !self.ime_enabled.load(Ordering::Relaxed) {
                 return;
@@ -232,7 +256,10 @@ impl ShellProvider for BlitzShellProvider {
                 ImeRequestData::default().with_surrounding_text(context),
             ));
         }
-        #[cfg(not(target_os = "ios"))]
+        #[cfg(not(any(
+            target_os = "ios",
+            all(target_os = "android", feature = "android-game-activity")
+        )))]
         let _ = (text, cursor, anchor);
     }
 
