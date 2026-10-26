@@ -857,9 +857,7 @@ impl DocumentMutator<'_> {
             }
         }
 
-        for child_id in child_ids.iter().copied() {
-            self.doc.reconcile_radio_subtree(child_id);
-        }
+        self.doc.reconcile_radio_subtrees(child_ids);
 
         self.maybe_record_node(parent_id);
     }

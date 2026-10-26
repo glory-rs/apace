@@ -136,12 +136,16 @@ impl BaseDocument {
             self.set_input_checked(id, true);
         }
     }
-    pub(crate) fn reconcile_radio_subtree(&mut self, id: NodeId) {
-        let radios: Vec<_> = TreeTraverser::new_with_root(self, id)
+    pub(crate) fn reconcile_radio_subtrees(&mut self, roots: &[NodeId]) {
+        // Capture initial checkedness before any peer is withdrawn, so bulk
+        // insertion has the same last-checked-member behavior as ordered inserts.
+        let radios: Vec<_> = roots
+            .iter()
+            .flat_map(|root| TreeTraverser::new_with_root(self, *root))
             .filter(|id| self.check_kind(*id) == Some("radio") && self.live_checked(*id))
             .collect();
         for id in radios {
-            self.reconcile_radio(id);
+            self.set_input_checked(id, true);
         }
     }
 }

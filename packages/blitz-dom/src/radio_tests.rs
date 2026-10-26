@@ -60,6 +60,33 @@ fn checked(doc: &BaseDocument, id: NodeId) -> bool {
 }
 
 #[test]
+fn bulk_insertion_keeps_the_last_initially_checked_radio_and_empty_names_do_not_group() {
+    let (mut doc, [first, _, _, _, _, empty, _, _]) = fixture();
+    let mut m = doc.mutate();
+    let attrs = vec![
+        attribute("type", "radio"),
+        attribute("name", "bulk"),
+        attribute("checked", ""),
+    ];
+    let a = m.create_element(qual_name!("input", html), attrs.clone());
+    let b = m.create_element(qual_name!("input", html), attrs);
+    m.append_children(first, &[a, b]);
+    let independent = m.create_element(
+        qual_name!("input", html),
+        vec![attribute("type", "radio"), attribute("name", "")],
+    );
+    m.append_children(first, &[independent]);
+    m.set_input_checked(independent, true);
+    m.set_input_checked(empty, true);
+    drop(m);
+    doc.resolve(0.);
+    assert!(!checked(&doc, a));
+    assert!(checked(&doc, b));
+    assert!(checked(&doc, independent));
+    assert!(checked(&doc, empty));
+}
+
+#[test]
 fn radio_property_and_activation_are_one_way_form_scoped_and_do_not_toggle_checkboxes() {
     let (mut doc, [_, _, a, b, c, empty, check, label]) = fixture();
     assert!(doc.set_input_checked(a, true));
