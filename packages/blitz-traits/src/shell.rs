@@ -41,6 +41,9 @@ pub trait ShellProvider: Send + Sync + 'static {
     fn supports_ime_surrounding_text(&self) -> bool {
         false
     }
+    /// A native input callback can change its local text store even when the
+    /// application's final value compares equal (for example IME cancellation).
+    fn invalidate_ime_context(&self) {}
     /// UTF-8 excerpt (under 4000 bytes), with validated byte cursor/anchor.
     fn set_ime_surrounding_text(&self, text: &str, cursor: usize, anchor: usize) {
         let _ = (text, cursor, anchor);

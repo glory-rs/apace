@@ -636,6 +636,11 @@ impl<Rend: WindowRenderer> View<Rend> {
                 inner.viewport_mut().color_scheme = color_scheme;
             }
             WindowEvent::Ime(ime_event) => {
+                #[cfg(target_os = "ios")]
+                {
+                    let provider = self.doc.inner().shell_provider.clone();
+                    provider.invalidate_ime_context();
+                }
                 self.doc.handle_ui_event(UiEvent::Ime(winit_ime_to_blitz(ime_event)));
                 self.request_redraw();
             },

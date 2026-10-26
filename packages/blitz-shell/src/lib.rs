@@ -198,6 +198,12 @@ impl ShellProvider for BlitzShellProvider {
         ));
     }
 
+    fn invalidate_ime_context(&self) {
+        #[cfg(target_os = "ios")]
+        {
+            *self.ime_context.lock().unwrap() = None;
+        }
+    }
     fn supports_ime_surrounding_text(&self) -> bool {
         cfg!(target_os = "ios")
     }
