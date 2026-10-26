@@ -95,6 +95,10 @@ impl DocumentMutator<'_> {
 
     // Query methods
 
+    pub fn set_input_checked(&mut self, node_id: NodeId, value: bool) -> bool {
+        self.doc.set_input_checked(node_id, value)
+    }
+
     /// Set the live checkbox property independently of its checked value. This
     /// also works before attachment; unsupported/retired nodes are rejected.
     pub fn set_input_indeterminate(&mut self, node_id: NodeId, value: bool) -> bool {
@@ -430,6 +434,9 @@ impl DocumentMutator<'_> {
         // If node if not in the document, then don't apply any special behaviours
         // and simply set the attribute value
         if !node.flags.is_in_document() {
+            if matches!(name.local.as_ref(), "name" | "form" | "type") {
+                self.doc.reconcile_radio(node_id);
+            }
             return;
         }
 
@@ -456,6 +463,9 @@ impl DocumentMutator<'_> {
             || (tag, attr) == tag_and_attr!("iframe", "srcdoc")
         {
             self.load_iframe(node_id);
+        }
+        if matches!(name.local.as_ref(), "name" | "form" | "type" | "checked") {
+            self.doc.reconcile_radio(node_id);
         }
     }
 
@@ -580,6 +590,9 @@ impl DocumentMutator<'_> {
         } else if (tag, attr) == tag_and_attr!("iframe", "srcdoc") && node_is_in_document {
             // Fall back to loading from the `src` attribute (if any)
             self.load_iframe(node_id);
+        }
+        if matches!(name.local.as_ref(), "name" | "form" | "type") {
+            self.doc.reconcile_radio(node_id);
         }
     }
 
@@ -842,6 +855,10 @@ impl DocumentMutator<'_> {
             } else if !new_parent_is_in_document && child_was_in_doc {
                 self.process_removed_subtree(child_id);
             }
+        }
+
+        for child_id in child_ids.iter().copied() {
+            self.doc.reconcile_radio_subtree(child_id);
         }
 
         self.maybe_record_node(parent_id);

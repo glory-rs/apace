@@ -60,6 +60,9 @@ mod layout_drop_tests;
 #[cfg(test)]
 mod layout_move_tests;
 mod query_selector;
+mod radio;
+#[cfg(test)]
+mod radio_tests;
 mod resolve;
 mod resource_queue;
 mod resources;

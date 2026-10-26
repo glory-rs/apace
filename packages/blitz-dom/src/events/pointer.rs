@@ -685,23 +685,14 @@ pub(crate) fn handle_click(
                     break 'matched true;
                 }
                 local_name!("input") if el.attr(local_name!("type")) == Some("radio") => {
-                    if let Some(radio_set) = el.attr(local_name!("name")).map(str::to_string) {
-                        BaseDocument::toggle_radio(doc, radio_set, node_id);
-                    } else if el.checkbox_input_checked().is_some() {
-                        doc.snapshot_node_and(node_id, ElementState::CHECKED, |node| {
-                            if let Some(el) = node.element_data_mut() {
-                                el.set_checkbox_input_checked(true);
-                            }
-                            node.mark_ancestors_dirty();
-                        });
+                    if doc.activate_radio(node_id) == Some(true) {
+                        dispatch_event(DomEvent::new(
+                            node_id,
+                            DomEventData::Input(BlitzInputEvent {
+                                value: "true".into(),
+                            }),
+                        ));
                     }
-
-                    // TODO: make input event conditional on value actually changing
-                    let value = String::from("true");
-                    dispatch_event(DomEvent::new(
-                        node_id,
-                        DomEventData::Input(BlitzInputEvent { value }),
-                    ));
 
                     generate_focus_events(
                         doc,
