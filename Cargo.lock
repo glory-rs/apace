@@ -2845,7 +2845,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 
 [[package]]
 name = "drm"
@@ -10131,12 +10131,12 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "winit"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.5",
@@ -10145,7 +10145,7 @@ dependencies = [
  "winit-android",
  "winit-appkit",
  "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "winit-orbital",
  "winit-uikit",
  "winit-wayland",
@@ -10157,27 +10157,27 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "android-activity",
  "bitflags 2.13.2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "ndk",
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -10188,23 +10188,23 @@ dependencies = [
  "smol_str",
  "tracing",
  "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "block2 0.6.2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "memmap2 0.9.11",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "x11-dl",
  "xkbcommon-dl",
 ]
@@ -10227,11 +10227,11 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str",
@@ -10241,28 +10241,28 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "libredox",
  "orbclient",
  "raw-window-handle",
  "redox_event",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -10271,18 +10271,18 @@ dependencies = [
  "smol_str",
  "tracing",
  "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "calloop",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "foldhash 0.2.0",
  "libc",
  "memmap2 0.9.11",
@@ -10298,19 +10298,19 @@ dependencies = [
  "wayland-protocols",
  "wayland-protocols-plasma",
  "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.2",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -10320,17 +10320,17 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "percent-encoding",
  "raw-window-handle",
  "smol_str",
@@ -10338,19 +10338,19 @@ dependencies = [
  "unicode-segmentation",
  "windows-sys 0.61.2",
  "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
 ]
 
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8#64eb17964df8d15c3733f2e2e5f1004cd21d00f8"
+source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
  "calloop",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "libc",
  "percent-encoding",
  "raw-window-handle",
@@ -10358,7 +10358,7 @@ dependencies = [
  "smol_str",
  "tracing",
  "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=64eb17964df8d15c3733f2e2e5f1004cd21d00f8)",
+ "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "x11-dl",
  "x11rb 0.14.0",
  "xkbcommon-dl",
