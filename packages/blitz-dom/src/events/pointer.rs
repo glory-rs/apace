@@ -576,7 +576,23 @@ pub(crate) fn handle_pointerup<F: FnMut(DomEvent)>(
 
     // Don't dispatch click if we were doing a text selection drag or panning
     // the document with a touch
-    let do_click = drag_mode == DragMode::None;
+    // Focusing a bottom editor can synchronously shrink the viewport when the
+    // software keyboard appears. A stationary finger then releases over the old
+    // location. Do not synthesize a blank click which would immediately blur the
+    // editor (or activate a different control that moved under the finger).
+    let moved_editor = matches!(event.id, BlitzPointerId::Finger(_))
+        && doc.mousedown_node_id.is_some_and(|pressed| {
+            pressed != target
+                && doc.get_focussed_node_id() == Some(pressed)
+                && doc.nodes.get(pressed).is_some_and(|node| {
+                    node.element_data()
+                        .and_then(|el| el.text_input_data())
+                        .is_some()
+                })
+        })
+        && (doc.mousedown_position.x - event.page_x()).abs() <= 2.0
+        && (doc.mousedown_position.y - event.page_y()).abs() <= 2.0;
+    let do_click = drag_mode == DragMode::None && !moved_editor;
 
     // Repaint so a dragged scrollbar thumb drops its active styling, and
     // restart its fade-out delay now that the drag no longer holds it shown
@@ -845,5 +861,91 @@ pub(crate) fn handle_wheel<F: FnMut(DomEvent)>(
     );
     if has_changed {
         doc.shell_provider.request_redraw();
+    }
+}
+
+#[cfg(test)]
+mod keyboard_viewport_tests {
+    use super::*;
+    use crate::{DocumentConfig, UserAgentStylesheet, qual_name};
+    use blitz_traits::{events::PointerCoords, shell::Viewport};
+
+    #[test]
+    fn stationary_touch_release_after_keyboard_resize_does_not_blur_or_click_another_target() {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(400, 600, 1., Default::default())),
+            ..Default::default()
+        });
+        doc.add_user_agent_stylesheet(UserAgentStylesheet::parse(
+            "html,body{margin:0;padding:0;height:100%}input{position:fixed;left:10px;bottom:20px;width:200px;height:40px;border:0;padding:0}",
+        ));
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html", html), vec![]);
+        let body = m.create_element(qual_name!("body", html), vec![]);
+        let input = m.create_element(qual_name!("input", html), vec![]);
+        m.append_children(root, &[html]);
+        m.append_children(html, &[body]);
+        m.append_children(body, &[input]);
+        drop(m);
+        doc.resolve(0.);
+        let before = doc.get_client_bounding_rect(input).unwrap();
+        let (x, y) = ((before.x + 20.) as f32, (before.y + 20.) as f32);
+        assert_eq!(doc.hit(x, y).unwrap().node_id, input);
+        doc.set_mousedown_node_id(Some(input));
+        handle_pointerdown(
+            &mut doc,
+            input,
+            x,
+            y,
+            MouseEventButton::Main,
+            Modifiers::empty(),
+            &mut |_| {},
+        );
+        assert_eq!(doc.get_focussed_node_id(), Some(input));
+        doc.set_viewport(Viewport::new(400, 360, 1., Default::default()));
+        doc.resolve(0.);
+        assert!(doc.get_client_bounding_rect(input).unwrap().y < before.y - 200.);
+        let release = BlitzPointerEvent {
+            id: BlitzPointerId::Finger(1),
+            is_primary: true,
+            coords: PointerCoords {
+                page_x: x,
+                page_y: y,
+                screen_x: x,
+                screen_y: y,
+                client_x: x,
+                client_y: y,
+            },
+            button: MouseEventButton::Main,
+            buttons: MouseEventButtons::None,
+            mods: Modifiers::empty(),
+            details: Default::default(),
+            element: Default::default(),
+            active_pointers: Default::default(),
+        };
+        let mut clicks = Vec::new();
+        handle_pointerup(&mut doc, body, &release, |event| clicks.push(event));
+        assert!(
+            clicks.is_empty(),
+            "stationary release synthesized an unrelated click"
+        );
+        assert_eq!(doc.get_focussed_node_id(), Some(input));
+
+        // A subsequent intentional blank tap still clears focus normally.
+        doc.set_mousedown_node_id(Some(body));
+        handle_pointerdown(
+            &mut doc,
+            body,
+            x,
+            y,
+            MouseEventButton::Main,
+            Modifiers::empty(),
+            &mut |_| {},
+        );
+        handle_pointerup(&mut doc, body, &release, |event| clicks.push(event));
+        assert_eq!(clicks.len(), 1);
+        handle_click(&mut doc, clicks[0].target, &release, &mut |_| {});
+        assert_ne!(doc.get_focussed_node_id(), Some(input));
     }
 }
