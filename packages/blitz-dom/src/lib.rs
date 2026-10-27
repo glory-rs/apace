@@ -52,6 +52,9 @@ mod iframe;
 /// Integration of taffy and the DOM.
 mod layout;
 mod mutator;
+mod placeholder;
+#[cfg(all(test, feature = "system-fonts"))]
+mod placeholder_tests;
 pub mod profile;
 #[cfg(all(test, feature = "system-fonts"))]
 mod style_damage_tests;

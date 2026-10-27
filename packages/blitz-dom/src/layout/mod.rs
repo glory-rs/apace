@@ -360,7 +360,7 @@ impl LayoutPassState<'_> {
                             );
                         }
                         None | Some("text" | "password" | "email" | "tel" | "url" | "search") => {
-                            return compute_leaf_layout(
+                            let output = compute_leaf_layout(
                                 inputs,
                                 &node.layout_style(),
                                 resolve_calc_value,
@@ -373,6 +373,35 @@ impl LayoutPassState<'_> {
                                     height: resolved_line_height.unwrap_or(16.0),
                                 },
                             );
+                            if inputs.run_mode == RunMode::PerformLayout {
+                                let pb = {
+                                    let style = node.layout_style();
+                                    style.padding().resolve_or_zero(
+                                        inputs.parent_size.width,
+                                        resolve_calc_value,
+                                    ) + style.border().resolve_or_zero(
+                                        inputs.parent_size.width,
+                                        resolve_calc_value,
+                                    )
+                                };
+                                let content_width =
+                                    (output.size.width - pb.horizontal_axis_sum()).max(0.0);
+                                let doc = &mut *self.doc;
+                                let scale = doc.viewport.scale();
+                                if let Some(input) = doc.nodes[dom_node_id(node_id)]
+                                    .element_data_mut()
+                                    .and_then(|e| e.text_input_data_mut())
+                                {
+                                    // Only the hint uses the viewport width. The editable single-line
+                                    // layout must keep its intrinsic width for caret scrolling.
+                                    input.set_placeholder_width(Some(content_width * scale));
+                                    input.refresh_display(
+                                        &mut doc.font_ctx.lock().unwrap(),
+                                        &mut doc.layout_ctx,
+                                    );
+                                }
+                            }
+                            return output;
                         }
                         _ => {}
                     }

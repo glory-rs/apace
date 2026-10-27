@@ -2724,6 +2724,7 @@ impl BaseDocument {
     /// Recompute the scroll offset of the text input at `node_id` (if any) so that its caret
     /// remains visible within the input's content box.
     pub(crate) fn clamp_text_input_scroll(&mut self, node_id: NodeId) {
+        self.sync_placeholder_state(node_id);
         let Some(node) = self.nodes.get_mut(node_id) else {
             return;
         };

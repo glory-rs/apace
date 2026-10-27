@@ -502,7 +502,9 @@ impl selectors::Element for BlitzNode<'_> {
             NonTSPseudoClass::Lang(_) => false,
             NonTSPseudoClass::CustomState(_) => false,
             NonTSPseudoClass::Link => self.element_state().contains(ElementState::UNVISITED),
-            NonTSPseudoClass::PlaceholderShown => false,
+            NonTSPseudoClass::PlaceholderShown => self
+                .element_state()
+                .contains(ElementState::PLACEHOLDER_SHOWN),
             NonTSPseudoClass::ReadWrite => false,
             NonTSPseudoClass::ReadOnly => false,
             NonTSPseudoClass::ServoNonZeroBorder => false,

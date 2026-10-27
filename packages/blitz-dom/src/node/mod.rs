@@ -6,6 +6,7 @@ mod custom_widget;
 mod element;
 mod node;
 mod password;
+mod placeholder;
 pub(crate) mod scrollbar;
 mod serialize;
 mod stylo_data;

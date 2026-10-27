@@ -7,6 +7,7 @@ use keyboard_types::{Key, Modifiers, NamedKey};
 use parley::{ContentWidths, FontContext, LayoutContext};
 
 use super::password::Password;
+use super::placeholder::Placeholder;
 use crate::util::ACTION_MOD;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -66,6 +67,8 @@ pub struct TextInputData {
     /// A parley TextEditor instance
     pub editor: Box<parley::PlainEditor<TextBrush>>,
     password: Option<Password>,
+    placeholder: Option<Placeholder>,
+    placeholder_width: Option<f32>,
     width: Option<f32>,
     alignment: parley::layout::Alignment,
     /// Whether the input is a singleline or multiline input
@@ -83,6 +86,7 @@ impl Clone for TextInputData {
     fn clone(&self) -> Self {
         let mut data = TextInputData::new(self.is_multiline);
         data.set_password(self.is_password());
+        data.set_placeholder(self.placeholder.as_ref().map(|hint| hint.text.as_str()));
         data
     }
 }
@@ -121,6 +125,8 @@ impl TextInputData {
         Self {
             editor,
             password: None,
+            placeholder: None,
+            placeholder_width: None,
             width: None,
             alignment: parley::layout::Alignment::Start,
             is_multiline,
@@ -145,6 +151,35 @@ impl TextInputData {
         self.password.is_some()
     }
 
+    pub(crate) fn set_placeholder(&mut self, text: Option<&str>) {
+        let text = text.filter(|text| text.len() <= 4096);
+        if self.placeholder.as_ref().map(|hint| hint.text.as_str()) == text {
+            return;
+        }
+        self.placeholder = text.map(Placeholder::new);
+    }
+    pub fn placeholder_shown(&self) -> bool {
+        self.placeholder.is_some()
+            && self.editor.raw_text().is_empty()
+            && !self.editor.is_composing()
+    }
+    /// Painting only: selection, IME, copying and geometry always use the real editor.
+    pub fn placeholder_layout(&self) -> Option<&parley::Layout<TextBrush>> {
+        if !self.placeholder_shown() {
+            return None;
+        }
+        self.placeholder.as_ref()?.editor.as_ref()?.try_layout()
+    }
+    pub(crate) fn set_placeholder_width(&mut self, width: Option<f32>) {
+        if self.placeholder_width == width {
+            return;
+        }
+        self.placeholder_width = width;
+        if let Some(hint) = &mut self.placeholder {
+            hint.dirty = true;
+        }
+    }
+
     pub(crate) fn set_password(&mut self, value: bool) {
         if value && self.password.is_none() {
             let mut password = Password::new(self.editor.get_font_size());
@@ -157,6 +192,7 @@ impl TextInputData {
     }
 
     pub(crate) fn set_width(&mut self, width: Option<f32>) {
+        self.set_placeholder_width(width);
         self.width = width;
         self.editor.set_width(width);
         if let Some(password) = &mut self.password {
@@ -165,6 +201,11 @@ impl TextInputData {
     }
 
     pub(crate) fn set_alignment(&mut self, alignment: parley::layout::Alignment) {
+        if self.alignment != alignment
+            && let Some(hint) = &mut self.placeholder
+        {
+            hint.dirty = true;
+        }
         self.alignment = alignment;
         self.editor.set_alignment(alignment);
         if let Some(password) = &mut self.password {
@@ -234,6 +275,19 @@ impl TextInputData {
         if let Some(password) = &mut self.password {
             password.sync(&self.editor, fonts, layouts);
         }
+        if self.editor.raw_text().is_empty() {
+            self.scroll_offset = 0.;
+        }
+        if let Some(hint) = &mut self.placeholder {
+            hint.sync(
+                &self.editor,
+                self.placeholder_width,
+                self.alignment,
+                self.is_multiline,
+                fonts,
+                layouts,
+            );
+        }
     }
 
     pub(crate) fn refresh_display_config(
@@ -243,8 +297,11 @@ impl TextInputData {
     ) {
         if let Some(password) = &mut self.password {
             password.invalidate_config();
-            password.sync(&self.editor, fonts, layouts);
         }
+        if let Some(hint) = &mut self.placeholder {
+            hint.dirty = true;
+        }
+        self.refresh_display(fonts, layouts);
     }
 
     /// Perform selection in display coordinates, then map the resulting UTF-8

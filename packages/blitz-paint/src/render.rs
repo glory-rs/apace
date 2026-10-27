@@ -913,7 +913,7 @@ impl ElementCx<'_, '_> {
                 self.context.dom,
                 transform,
                 self.scale,
-                self.node.id,
+                crate::text::TextPaint::normal(self.node.id),
                 &mut draw_text_context,
             );
         }
@@ -922,6 +922,35 @@ impl ElementCx<'_, '_> {
     fn draw_text_input_text(&self, scene: &mut impl PaintScene, pos: Point) {
         // Render the text in text inputs
         if let Some(input_data) = self.text_input {
+            if let Some(hint) = input_data.placeholder_layout() {
+                // Hints never share raw editor scrolling, selection or password masking.
+                // Clip the independent layout to the content box, including decorations.
+                let box_size = self.node.final_layout();
+                let width = f64::from(box_size.content_box_width());
+                let height = f64::from(box_size.content_box_height());
+                let y = if input_data.is_multiline {
+                    0.0
+                } else {
+                    ((height - f64::from(hint.height()) / self.scale) / 2.0).max(0.0)
+                };
+                let base =
+                    self.transform * Affine::translate((pos.x * self.scale, pos.y * self.scale));
+                scene.push_clip_layer(
+                    Fill::NonZero,
+                    base,
+                    &Rect::new(0.0, 0.0, width * self.scale, height * self.scale),
+                );
+                crate::text::stroke_text(
+                    scene,
+                    hint.lines(),
+                    self.context.dom,
+                    base * Affine::translate((0.0, y * self.scale)),
+                    self.scale,
+                    crate::text::TextPaint::placeholder(self.node.id),
+                    &mut self.context.draw_text_context.borrow_mut(),
+                );
+                scene.pop_layer();
+            }
             // For single-line inputs, add an offset to vertically center the text input layout
             // within the content box of it's node.
             let y_offset = self.node.text_input_v_centering_offset(self.scale);
@@ -979,7 +1008,7 @@ impl ElementCx<'_, '_> {
                 self.context.dom,
                 transform,
                 self.scale,
-                self.node.id,
+                crate::text::TextPaint::normal(self.node.id),
                 &mut draw_text_context,
             );
         }
@@ -1034,7 +1063,7 @@ impl ElementCx<'_, '_> {
                 self.context.dom,
                 transform,
                 self.scale,
-                self.node.id,
+                crate::text::TextPaint::normal(self.node.id),
                 &mut draw_text_context,
             );
         }

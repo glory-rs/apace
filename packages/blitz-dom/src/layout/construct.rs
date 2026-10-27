@@ -896,6 +896,10 @@ fn create_text_editor(doc: &mut BaseDocument, input_element_id: NodeId, is_multi
         node.attr(local_name!("value")).unwrap_or("").to_string()
     };
     let is_password = !is_multiline && node.attr(local_name!("type")) == Some("password");
+    let placeholder = node
+        .attr(local_name!("placeholder"))
+        .filter(|s| s.len() <= 4096)
+        .map(str::to_owned);
     let element = &mut node.data.downcast_element_mut().unwrap();
     if !matches!(element.special_data, SpecialElementData::TextInput(_)) {
         let mut text_input_data = TextInputData::new(is_multiline);
@@ -909,6 +913,7 @@ fn create_text_editor(doc: &mut BaseDocument, input_element_id: NodeId, is_multi
     };
 
     text_input_data.set_password(is_password);
+    text_input_data.set_placeholder(placeholder.as_deref());
     text_input_data.set_width(None);
     text_input_data.set_alignment(alignment);
     let editor = &mut text_input_data.editor;

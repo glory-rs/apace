@@ -562,15 +562,33 @@ fn flush_line_decorations(
     }
 }
 
+/// Presentation-only colour override; editable layout and geometry stay independent.
+pub(crate) struct TextPaint {
+    root: NodeId,
+    color: Option<Color>,
+}
+impl TextPaint {
+    pub fn normal(root: NodeId) -> Self {
+        Self { root, color: None }
+    }
+    pub fn placeholder(root: NodeId) -> Self {
+        Self {
+            root,
+            color: Some(Color::from_rgba8(117, 117, 117, 255)),
+        }
+    }
+}
+
 pub(crate) fn stroke_text<'a>(
     scene: &mut impl PaintScene,
     lines: impl Iterator<Item = Line<'a, TextBrush>>,
     doc: &BaseDocument,
     transform: Affine,
     scale: f64,
-    inline_root_id: NodeId,
+    paint: TextPaint,
     context: &mut DrawTextContext,
 ) {
+    let inline_root_id = paint.root;
     let DrawTextContext {
         stack,
         path_scratch,
@@ -630,7 +648,14 @@ pub(crate) fn stroke_text<'a>(
                     .count();
                 stack.truncate(shared);
                 for &node_id in &path_scratch[shared..] {
-                    stack.push(resolve_decoration_entry(doc, node_id));
+                    let mut entry = resolve_decoration_entry(doc, node_id);
+                    if let Some(color) = paint.color {
+                        entry.text_color = color;
+                        if let Some(deco) = &mut entry.decoration {
+                            deco.color = color;
+                        }
+                    }
+                    stack.push(entry);
                 }
 
                 // The glyph colour comes from the run's own node (the stack top): `color`

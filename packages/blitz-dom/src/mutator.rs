@@ -258,6 +258,9 @@ impl DocumentMutator<'_> {
             }
 
             self.maybe_record_node(parent_id);
+            if let Some(parent_id) = parent_id {
+                self.doc.sync_placeholder_state(parent_id);
+            }
         }
     }
 
@@ -303,9 +306,15 @@ impl DocumentMutator<'_> {
         // Inline declarations still invalidate selectors and inherited styles,
         // but their layout damage comes from the computed-style difference.
         // A top/height edit must not reconstruct all descendant text contexts.
-        let style_attribute = name.local == local_name!("style");
+        // A hint edit changes its presentation layout only; matching selectors
+        // can still change the real editor's styles through ordinary damage.
+        let computed_damage_only_attribute = name.local == local_name!("style")
+            || name.local == local_name!("placeholder")
+                && self.doc.nodes[node_id]
+                    .element_data()
+                    .is_some_and(|e| e.text_input_data().is_some());
         #[cfg(feature = "custom-widget")]
-        let style_attribute = style_attribute
+        let computed_damage_only_attribute = computed_damage_only_attribute
             && !self.doc.nodes[node_id]
                 .element_data()
                 .is_some_and(|element| {
@@ -318,7 +327,7 @@ impl DocumentMutator<'_> {
             let node = &mut self.doc.nodes[node_id];
             if let Some(mut data) = node.try_stylo_element_data_mut().and_then(|s| s.get_mut()) {
                 data.hint |= RestyleHint::restyle_subtree();
-                if !style_attribute {
+                if !computed_damage_only_attribute {
                     data.damage.insert(ALL_DAMAGE);
                 }
             }
@@ -417,11 +426,27 @@ impl DocumentMutator<'_> {
                     value,
                 );
             }
+            self.doc.sync_placeholder_state(node_id);
+            return;
+        }
+
+        if *attr == local_name!("placeholder") {
+            if let Some(input) = element.text_input_data_mut() {
+                input.set_placeholder(Some(value));
+                input.refresh_display(
+                    &mut self.doc.font_ctx.lock().unwrap(),
+                    &mut self.doc.layout_ctx,
+                );
+            }
+            self.doc.sync_placeholder_state(node_id);
             return;
         }
 
         if *attr == local_name!("style") {
-            element.flush_style_attribute(&self.doc.guard, &self.doc.url.url_extra_data());
+            element.flush_style_attribute(
+                &self.doc.guard,
+                &self.doc.url.url_extra_data(),
+            );
             node.set_restyle_hint(RestyleHint::RESTYLE_STYLE_ATTRIBUTE);
             return;
         }
@@ -434,6 +459,7 @@ impl DocumentMutator<'_> {
         // If node if not in the document, then don't apply any special behaviours
         // and simply set the attribute value
         if !node.flags.is_in_document() {
+            self.doc.sync_placeholder_state(node_id);
             if matches!(name.local.as_ref(), "name" | "form" | "type") {
                 self.doc.reconcile_radio(node_id);
             }
@@ -467,12 +493,17 @@ impl DocumentMutator<'_> {
         if matches!(name.local.as_ref(), "name" | "form" | "type" | "checked") {
             self.doc.reconcile_radio(node_id);
         }
+        self.doc.sync_placeholder_state(node_id);
     }
 
     pub fn clear_attribute(&mut self, node_id: NodeId, name: QualName) {
-        let style_attribute = name.local == local_name!("style");
+        let computed_damage_only_attribute = name.local == local_name!("style")
+            || name.local == local_name!("placeholder")
+                && self.doc.nodes[node_id]
+                    .element_data()
+                    .is_some_and(|e| e.text_input_data().is_some());
         #[cfg(feature = "custom-widget")]
-        let style_attribute = style_attribute
+        let computed_damage_only_attribute = computed_damage_only_attribute
             && !self.doc.nodes[node_id]
                 .element_data()
                 .is_some_and(|element| {
@@ -486,7 +517,7 @@ impl DocumentMutator<'_> {
 
             if let Some(mut data) = node.try_stylo_element_data_mut().and_then(|s| s.get_mut()) {
                 data.hint |= RestyleHint::restyle_subtree();
-                if !style_attribute {
+                if !computed_damage_only_attribute {
                     data.damage.insert(ALL_DAMAGE);
                 }
             }
@@ -564,6 +595,18 @@ impl DocumentMutator<'_> {
             }
         }
 
+        if name.local == local_name!("placeholder") {
+            if let Some(input) = element.text_input_data_mut() {
+                input.set_placeholder(None);
+                input.refresh_display(
+                    &mut self.doc.font_ctx.lock().unwrap(),
+                    &mut self.doc.layout_ctx,
+                );
+            }
+            self.doc.sync_placeholder_state(node_id);
+            return;
+        }
+
         let tag = &element.name.local;
         let attr = &name.local;
 
@@ -573,7 +616,10 @@ impl DocumentMutator<'_> {
         }
 
         if *attr == local_name!("style") {
-            element.flush_style_attribute(&self.doc.guard, &self.doc.url.url_extra_data());
+            element.flush_style_attribute(
+                &self.doc.guard,
+                &self.doc.url.url_extra_data(),
+            );
             node.set_restyle_hint(RestyleHint::RESTYLE_STYLE_ATTRIBUTE);
         } else if (tag, attr) == tag_and_attr!("input", "checked") {
             element.set_checkbox_input_checked(false);
@@ -594,6 +640,7 @@ impl DocumentMutator<'_> {
         if matches!(name.local.as_ref(), "name" | "form" | "type") {
             self.doc.reconcile_radio(node_id);
         }
+        self.doc.sync_placeholder_state(node_id);
     }
 
     pub fn set_style_property(&mut self, node_id: NodeId, name: &str, value: &str) {
@@ -1026,6 +1073,7 @@ impl<'doc> DocumentMutator<'doc> {
 
         for id in self.form_nodes.drain() {
             self.doc.reset_form_owner(id);
+            self.doc.sync_placeholder_state(id);
         }
 
         #[cfg(feature = "autofocus")]
