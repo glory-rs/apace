@@ -73,8 +73,8 @@ pub(crate) struct ScrollRequest {
     pub(crate) overflow: ScrollOverflow,
     pub(crate) source: ScrollSource,
     pub(crate) behavior: ScrollBehavior,
-    /// Whether to abort a smooth scroll in progress. Set for user-initiated scrolls, so that
-    /// an animation does not fight the user's input for the rest of its duration.
+    /// Whether to abort an existing smooth scroll, or a touch fling when the
+    /// request is programmatic. Fling frames use the user scroll chain themselves.
     pub(crate) interrupt_animation: bool,
 }
 
@@ -134,7 +134,8 @@ impl BaseDocument {
         dispatch_event: &mut dyn FnMut(DomEvent),
     ) -> bool {
         if request.interrupt_animation
-            && matches!(self.scroll_animation, ScrollAnimationState::ScrollTo(_))
+            && (matches!(self.scroll_animation, ScrollAnimationState::ScrollTo(_))
+                || request.source == ScrollSource::Programmatic)
         {
             self.scroll_animation = ScrollAnimationState::None;
         }
@@ -784,5 +785,73 @@ impl BaseDocument {
                 // Do nothing
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{DocumentConfig, UserAgentStylesheet, qual_name};
+    use blitz_traits::shell::Viewport;
+
+    fn fixture() -> (BaseDocument, NodeId) {
+        let mut doc = BaseDocument::new(DocumentConfig {
+            viewport: Some(Viewport::new(400, 300, 1., Default::default())),
+            ..Default::default()
+        });
+        doc.add_user_agent_stylesheet(UserAgentStylesheet::parse(
+            "html,body{margin:0;padding:0}section{width:200px;height:100px;overflow:auto}article{height:1000px}",
+        ));
+        let root = doc.root_node().id;
+        let mut m = doc.mutate();
+        let html = m.create_element(qual_name!("html", html), vec![]);
+        let body = m.create_element(qual_name!("body", html), vec![]);
+        let panel = m.create_element(qual_name!("section", html), vec![]);
+        let content = m.create_element(qual_name!("article", html), vec![]);
+        m.append_children(root, &[html]);
+        m.append_children(html, &[body]);
+        m.append_children(body, &[panel]);
+        m.append_children(panel, &[content]);
+        drop(m);
+        doc.resolve(0.);
+        doc.scroll_to(panel, 0., 300., ScrollBehavior::Instant);
+        assert_eq!(doc.get_node(panel).unwrap().scroll_offset().y, 300.);
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as f64;
+        doc.scroll_animation = ScrollAnimationState::Fling(FlingState {
+            target: panel,
+            last_seen_time: now - 16.,
+            x_velocity: 0.,
+            y_velocity: -1.,
+        });
+        (doc, panel)
+    }
+
+    #[test]
+    fn explicit_programmatic_scroll_retires_touch_fling_before_later_frames() {
+        for relative in [false, true] {
+            let (mut doc, panel) = fixture();
+            if relative {
+                doc.scroll_by(panel, 0., -300., ScrollBehavior::Instant);
+            } else {
+                doc.scroll_to(panel, 0., 0., ScrollBehavior::Instant);
+            }
+            assert_eq!(doc.scroll_animation, ScrollAnimationState::None);
+            doc.resolve_scroll_animation();
+            assert_eq!(doc.get_node(panel).unwrap().scroll_offset().y, 0.);
+        }
+    }
+
+    #[test]
+    fn advancing_touch_fling_keeps_its_animation_alive() {
+        let (mut doc, panel) = fixture();
+        doc.resolve_scroll_animation();
+        assert!(matches!(
+            doc.scroll_animation,
+            ScrollAnimationState::Fling(_)
+        ));
+        assert!(doc.get_node(panel).unwrap().scroll_offset().y > 300.);
     }
 }
