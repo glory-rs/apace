@@ -541,6 +541,14 @@ fn collect_layout_children_with_wrap(
     match container_display.inside() {
         DisplayInside::None => {}
         DisplayInside::Contents => {
+            // A formerly boxed container now contributes only its children to
+            // its ancestor. It must not retain a competing old child roster or
+            // anonymous boxes after those children acquire their new parent.
+            doc.nodes[container_node_id].layout_children.get_mut().take();
+            let old_anonymous = std::mem::take(&mut doc.nodes[container_node_id].anonymous_blocks);
+            for id in old_anonymous {
+                doc.deallocate_anonymous_block(id);
+            }
             doc.nodes[container_node_id]
                 .remove_damage(CONSTRUCT_BOX | CONSTRUCT_DESCENDENT | CONSTRUCT_FC);
             // display:contents is transparent for box generation: hoist the

@@ -183,3 +183,8 @@ pub fn build_single_font_ctx(font_data: &[u8]) -> FontContext {
 
 #[cfg(test)]
 mod indeterminate_tests;
+
+#[cfg(test)]
+mod animation_retirement_tests;
+#[cfg(test)]
+mod layout_contents_tests;

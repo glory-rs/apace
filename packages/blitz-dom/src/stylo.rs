@@ -182,7 +182,32 @@ impl crate::document::BaseDocument {
         self.snapshots.clear();
 
         let mut sets = self.animations.sets.write();
-        for set in sets.values_mut() {
+        for (key, set) in sets.iter_mut() {
+            // Display-none traversal skips descendant restyling, so those
+            // descendants never get their normal animation/transition cancel
+            // update. Inspect only current animation members and their live
+            // ancestor paths after style has been recomputed on this pass.
+            let mut cursor = Some(NodeId::from_u64(key.node.id() as u64));
+            let mut hidden = false;
+            while let Some(id) = cursor {
+                let Some(node) = self.nodes.get(id) else {
+                    hidden = true;
+                    break;
+                };
+                if node
+                    .primary_styles()
+                    .is_some_and(|style| style.clone_display().is_none())
+                {
+                    hidden = true;
+                    break;
+                }
+                cursor = node.parent;
+            }
+            if hidden {
+                set.animations.clear();
+                set.transitions.clear();
+                continue;
+            }
             set.clear_canceled_animations();
             for animation in set.animations.iter_mut() {
                 animation.is_new = false;
