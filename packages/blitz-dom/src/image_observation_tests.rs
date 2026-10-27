@@ -200,3 +200,60 @@ fn image_observation_one_terminal_per_consumer_survives_draining_and_sequence_is
     assert_eq!(doc.image_observations.sequence, sequence + 1);
     assert!(doc.image_observations.sequence <= doc.image_observations.next);
 }
+
+#[test]
+fn revoking_an_image_url_evicts_only_its_cache_and_rejects_late_pending_delivery() {
+    let (mut doc, body, provider) = fixture();
+    let first = mount(&mut doc, body, "a.png");
+    let a = request(&doc, "a.png");
+    doc.load_resource(response(a, true));
+    mount(&mut doc, body, "b.png");
+    let b = request(&doc, "b.png");
+    doc.load_resource(response(b, true));
+    doc.take_image_events();
+    assert_eq!(doc.resource_stats().cached_images, 2);
+    doc.revoke_image_url("https://example.test/a.png");
+    assert_eq!(doc.resource_stats().cached_images, 1);
+    assert!(
+        doc.get_node(first)
+            .unwrap()
+            .element_data()
+            .unwrap()
+            .raster_image_data()
+            .is_some(),
+        "already delivered pixels are not secure-erased"
+    );
+    let again = mount(&mut doc, body, "a.png");
+    let later = request(&doc, "a.png");
+    assert_ne!(a, later);
+    assert_eq!(
+        provider.0.lock().unwrap().len(),
+        3,
+        "new consumers cannot reuse revoked cache"
+    );
+    doc.revoke_image_url("https://example.test/a.png");
+    assert_eq!(doc.resource_stats().pending_images, 0);
+    let events = doc.take_image_events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(
+        (events[0].node, events[0].status),
+        (again, ImageLoadStatus::Failed)
+    );
+    doc.load_resource(response(later, true));
+    assert_eq!(doc.resource_stats().cached_images, 1);
+    assert!(doc.take_image_events().is_empty());
+    assert!(
+        doc.get_node(again)
+            .unwrap()
+            .element_data()
+            .unwrap()
+            .raster_image_data()
+            .is_none()
+    );
+    mount(&mut doc, body, "b.png");
+    assert_eq!(
+        provider.0.lock().unwrap().len(),
+        3,
+        "unrelated cached images remain reusable"
+    );
+}

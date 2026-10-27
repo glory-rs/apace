@@ -139,6 +139,12 @@ pub(crate) struct ImageCache {
     limits: ResourceLimits,
 }
 impl ImageCache {
+    fn remove(&mut self, url: &str) {
+        if let Some((_, bytes, _)) = self.entries.remove(url) {
+            self.bytes -= bytes;
+            self.evictions = self.evictions.saturating_add(1);
+        }
+    }
     pub fn get(&mut self, url: &str) -> Option<&ImageData> {
         self.clock = self.clock.saturating_add(1);
         let entry = self.entries.get_mut(url)?;
@@ -268,6 +274,25 @@ impl BaseDocument {
     }
     /// Cancel image requests without a live consumer. Work depends only on the
     /// bounded pending table, never the source data or all visited URLs.
+    /// Revoke a resource's reusable decoded image and pending delivery. Current
+    /// elements may retain pixels already delivered; future consumers must go
+    /// through the provider again. No mounted-tree scan or URL history is kept.
+    pub fn revoke_image_url(&mut self, url: &str) {
+        self.image_cache.remove(url);
+        if let Some(pending) = self.pending_images.get(url) {
+            let request_id = pending.request_id;
+            self.tx.pool.cancel(request_id);
+            self.net_provider.cancel(self.id(), url);
+            self.load_resource(crate::net::ResourceLoadResponse {
+                request_id,
+                node_id: None,
+                resolved_url: Some(url.to_owned()),
+                result: Err("image resource revoked".into()),
+                ticket: None,
+            });
+        }
+    }
+
     pub fn prune_resource_interests(&mut self) {
         let nodes = &self.nodes;
         let base = &self.url;
