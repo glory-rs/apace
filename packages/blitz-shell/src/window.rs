@@ -362,7 +362,11 @@ impl<Rend: WindowRenderer> View<Rend> {
     }
 
     pub fn suspend(&mut self) {
-        self.waker = None;
+        // Only the render surface is suspended. The document and its tasks
+        // still belong to this live View: an external Android Activity may
+        // need cancellation/IO work to settle before it returns a result.
+        // Keep the poll waker until View drop; request_redraw already checks
+        // renderer activity before asking the platform to draw.
         self.renderer.suspend();
 
         #[cfg(feature = "custom-widget")]
