@@ -2,11 +2,11 @@
 
 use anyrender::{PaintScene as _, render_to_buffer};
 use anyrender_vello_cpu::VelloCpuImageRenderer;
-use blitz_dom::{DocumentConfig, util::Color};
-use blitz_html::HtmlDocument;
-use blitz_net::Provider;
-use blitz_paint::paint_scene;
-use blitz_traits::shell::{ColorScheme, Viewport};
+use apace_dom::{DocumentConfig, util::Color};
+use apace_html::HtmlDocument;
+use apace_net::Provider;
+use apace_paint::paint_scene;
+use apace_traits::shell::{ColorScheme, Viewport};
 use peniko::Fill;
 use peniko::kurbo::Rect;
 use reqwest::Url;

@@ -1,4 +1,4 @@
-use blitz_traits::{
+use apace_traits::{
     navigation::{NavigationOptions, NavigationProvider},
     net::Method,
 };

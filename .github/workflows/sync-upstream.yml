@@ -1,0 +1,30 @@
+name: Sync upstream mirror
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: apace-upstream-mirror
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Update only upstream-main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/DioxusLabs/blitz.git refs/heads/main
+          upstream=$(git rev-parse FETCH_HEAD)
+          previous=$(git ls-remote origin refs/heads/upstream-main | cut -f1)
+          if [ -n "$previous" ]; then
+            git push --force-with-lease="refs/heads/upstream-main:$previous" origin "$upstream:refs/heads/upstream-main"
+          else
+            git push origin "$upstream:refs/heads/upstream-main"
+          fi

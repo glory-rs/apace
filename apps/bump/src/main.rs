@@ -10,16 +10,16 @@ const ANYRENDER_PACKAGES: &[&str] = &[
     "anyrender_svg",
 ];
 
-// The set of the "blitz" packages that are versioned together
-const BLITZ_PACKAGES: &[&str] = &[
-    "blitz",
-    "blitz-dom",
-    "blitz-html",
-    "blitz-net",
-    "blitz-paint",
-    "blitz-shell",
-    "blitz-traits",
-    "stylo_taffy",
+// The set of the "apace" packages that are versioned together
+const APACE_PACKAGES: &[&str] = &[
+    "apace",
+    "apace-dom",
+    "apace-html",
+    "apace-net",
+    "apace-paint",
+    "apace-shell",
+    "apace-traits",
+    "stylo_takia",
 ];
 
 macro_rules! bail {
@@ -69,12 +69,12 @@ fn main() {
     // Parse "target" CLI arg
     let target = args.next();
     let target = match target.as_deref() {
-        Some(target @ ("blitz" | "anyrender")) => target,
+        Some(target @ ("apace" | "anyrender")) => target,
         Some(target) => {
             println!("{target}");
-            bail!("Invalid target. Must be 'blitz' or 'anyrender'")
+            bail!("Invalid target. Must be 'apace' or 'anyrender'")
         }
-        _ => bail!("Missing target. Must be 'blitz' or 'anyrender'"),
+        _ => bail!("Missing target. Must be 'apace' or 'anyrender'"),
     };
 
     // Parse "version" CLI arg
@@ -100,12 +100,12 @@ fn main() {
         println!("Bumped anyrender versions")
     }
 
-    if target == "blitz" {
+    if target == "apace" {
         set_workspace_version(&version);
-        for package in BLITZ_PACKAGES {
+        for package in APACE_PACKAGES {
             set_workspace_dep_version(package, &version);
         }
 
-        println!("Bumped blitz versions")
+        println!("Bumped apace versions")
     }
 }

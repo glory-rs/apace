@@ -1,7 +1,7 @@
 //! Minimal example of using Stylo
 //! TODO: clean up and upstream to stylo repo
 
-// pub use blitz::style_impls::{BlitzNode, RealDom};
+// pub use apace::style_impls::{ApaceNode, RealDom};
 // use dioxus::prelude::*;
 // use style::{
 //     animation::DocumentAnimationSet,

@@ -112,20 +112,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "accesskit_xplat"
-version = "0.2.1"
-dependencies = [
- "accesskit",
- "accesskit_android",
- "accesskit_macos",
- "accesskit_unix",
- "accesskit_windows",
- "android-activity",
- "raw-window-handle",
- "winit-core 0.31.0-beta.4 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -334,7 +320,7 @@ dependencies = [
  "anyrender",
  "ash",
  "ash-window",
- "debug_timer 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debug_timer",
  "gl",
  "glutin",
  "hashbrown 0.17.1",
@@ -373,7 +359,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04d545f71a3f13b1099d5787c44cfeb00322cebbebbf90c4f8cdae78bee423f7"
 dependencies = [
  "anyrender",
- "debug_timer 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debug_timer",
  "futures-channel",
  "kurbo",
  "peniko",
@@ -394,7 +380,7 @@ dependencies = [
  "anyrender",
  "bytemuck",
  "color",
- "debug_timer 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debug_timer",
  "glifo",
  "kurbo",
  "peniko",
@@ -411,7 +397,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5139465733e457ebd2dd04efbee5aa6fbc1d8747d0e3fe0f81b8de4f240cb01"
 dependencies = [
  "anyrender",
- "debug_timer 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debug_timer",
  "futures-channel",
  "glifo",
  "kurbo",
@@ -424,6 +410,275 @@ dependencies = [
  "wgpu 30.0.1",
  "wgpu_context",
 ]
+
+[[package]]
+name = "apace"
+version = "0.3.0-beta.4"
+dependencies = [
+ "anyrender_vello",
+ "apace-dom",
+ "apace-html",
+ "apace-net",
+ "apace-paint",
+ "apace-shell",
+ "apace-traits",
+ "tokio",
+ "tracing",
+ "url",
+]
+
+[[package]]
+name = "apace-dom"
+version = "0.3.0-beta.4"
+dependencies = [
+ "accesskit",
+ "anyrender",
+ "apace-traits",
+ "apace_debug_timer",
+ "app_units",
+ "atomic_refcell",
+ "bitflags 2.13.2",
+ "color",
+ "cssparser",
+ "cursor-icon",
+ "euclid",
+ "fontique",
+ "html-escape",
+ "icu_casemap",
+ "icu_locale_core",
+ "icu_properties",
+ "icu_segmenter",
+ "image",
+ "keyboard-types 0.8.3",
+ "kurbo",
+ "linebender_resource_handle",
+ "markup5ever",
+ "objc2 0.6.5",
+ "parley",
+ "percent-encoding",
+ "rayon",
+ "selectors",
+ "skrifa",
+ "slotmap",
+ "smallvec",
+ "stylo",
+ "stylo_dom",
+ "stylo_static_prefs",
+ "stylo_takia",
+ "stylo_traits",
+ "svgtypes",
+ "takia",
+ "thin-vec",
+ "thread_local",
+ "tracing",
+ "url",
+ "usvg",
+ "web-time",
+ "writeable",
+ "wuff",
+]
+
+[[package]]
+name = "apace-examples"
+version = "0.0.1"
+dependencies = [
+ "anyrender",
+ "anyrender_vello",
+ "anyrender_vello_cpu",
+ "anyrender_vello_hybrid",
+ "apace",
+ "apace-dom",
+ "apace-html",
+ "apace-net",
+ "apace-paint",
+ "apace-shell",
+ "apace-traits",
+ "apace-vibey-script",
+ "color",
+ "dioxus",
+ "dioxus-native",
+ "env_logger",
+ "euclid",
+ "image",
+ "peniko",
+ "png 0.18.1",
+ "reqwest",
+ "rustc-hash 2.1.3",
+ "tokio",
+ "tracing-subscriber",
+ "url",
+ "vello",
+ "vello_common",
+ "vello_cpu",
+ "vello_gpu",
+ "wgpu 30.0.1",
+ "wgpu_context",
+]
+
+[[package]]
+name = "apace-html"
+version = "0.3.0-beta.4"
+dependencies = [
+ "apace-dom",
+ "apace-traits",
+ "html5ever",
+ "tracing",
+ "xml5ever",
+]
+
+[[package]]
+name = "apace-net"
+version = "0.3.0-beta.4"
+dependencies = [
+ "apace-traits",
+ "data-url",
+ "directories",
+ "http-cache",
+ "http-cache-reqwest",
+ "reqwest",
+ "reqwest-middleware",
+ "tokio",
+ "tracing",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "apace-paint"
+version = "0.3.0-beta.4"
+dependencies = [
+ "anyrender",
+ "anyrender_svg",
+ "anyrender_vello_cpu",
+ "apace-dom",
+ "apace-traits",
+ "bytemuck",
+ "color",
+ "euclid",
+ "kurbo",
+ "parley",
+ "peniko",
+ "skrifa",
+ "smallvec",
+ "stylo",
+ "takia",
+ "tracing",
+ "usvg",
+]
+
+[[package]]
+name = "apace-shell"
+version = "0.3.0-beta.4"
+dependencies = [
+ "accesskit",
+ "android-activity",
+ "anyrender",
+ "apace-dom",
+ "apace-paint",
+ "apace-traits",
+ "apace_accesskit",
+ "arboard",
+ "atomic_refcell",
+ "data-url",
+ "futures-util",
+ "keyboard-types 0.8.3",
+ "rfd",
+ "tracing",
+ "wasm-bindgen",
+ "web-sys",
+ "web-time",
+ "wingy",
+]
+
+[[package]]
+name = "apace-test-harness"
+version = "0.3.0-beta.4"
+dependencies = [
+ "apace-dom",
+ "apace-html",
+ "apace-traits",
+ "dioxus-core",
+ "dioxus-native-dom",
+ "keyboard-types 0.8.3",
+ "smol_str",
+]
+
+[[package]]
+name = "apace-tests"
+version = "0.3.0-beta.4"
+dependencies = [
+ "accesskit",
+ "anyrender",
+ "anyrender_vello_cpu",
+ "apace-dom",
+ "apace-html",
+ "apace-paint",
+ "apace-test-harness",
+ "apace-traits",
+ "cursor-icon",
+ "dioxus",
+ "dioxus-core",
+ "dioxus-native-dom",
+ "keyboard-types 0.8.3",
+ "markup5ever",
+ "stylo",
+ "takia",
+ "test-that",
+ "usvg",
+]
+
+[[package]]
+name = "apace-traits"
+version = "0.3.0-beta.4"
+dependencies = [
+ "atomic_refcell",
+ "bitflags 2.13.2",
+ "bytes",
+ "cursor-icon",
+ "http",
+ "keyboard-types 0.8.3",
+ "serde",
+ "smol_str",
+ "url",
+]
+
+[[package]]
+name = "apace-vibey-script"
+version = "0.3.0-beta.4"
+dependencies = [
+ "apace-dom",
+ "apace-html",
+ "apace-traits",
+ "boa_engine",
+ "boa_gc",
+ "boa_runtime",
+ "data-url",
+ "icu_properties",
+ "keyboard-types 0.8.3",
+ "log",
+ "markup5ever",
+ "stylo",
+ "tracing",
+ "url",
+ "web-time",
+]
+
+[[package]]
+name = "apace_accesskit"
+version = "0.2.1"
+dependencies = [
+ "accesskit",
+ "accesskit_android",
+ "accesskit_macos",
+ "accesskit_unix",
+ "accesskit_windows",
+ "android-activity",
+ "raw-window-handle",
+ "wingy-core",
+]
+
+[[package]]
+name = "apace_debug_timer"
+version = "0.1.3"
 
 [[package]]
 name = "app_units"
@@ -457,7 +712,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
  "x11rb 0.13.2",
 ]
 
@@ -881,257 +1136,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blitz"
-version = "0.3.0-beta.4"
-dependencies = [
- "anyrender_vello",
- "blitz-dom",
- "blitz-html",
- "blitz-net",
- "blitz-paint",
- "blitz-shell",
- "blitz-traits",
- "tokio",
- "tracing",
- "url",
-]
-
-[[package]]
-name = "blitz-dom"
-version = "0.3.0-beta.4"
-dependencies = [
- "accesskit",
- "anyrender",
- "app_units",
- "atomic_refcell",
- "bitflags 2.13.2",
- "blitz-traits",
- "color",
- "cssparser",
- "cursor-icon",
- "debug_timer 0.1.3",
- "euclid",
- "fontique",
- "html-escape",
- "icu_casemap",
- "icu_locale_core",
- "icu_properties",
- "icu_segmenter",
- "image",
- "keyboard-types 0.8.3",
- "kurbo",
- "linebender_resource_handle",
- "markup5ever",
- "objc2 0.6.5",
- "parley",
- "percent-encoding",
- "rayon",
- "selectors",
- "skrifa",
- "slotmap",
- "smallvec",
- "stylo",
- "stylo_dom",
- "stylo_static_prefs",
- "stylo_taffy",
- "stylo_traits",
- "svgtypes",
- "taffy",
- "thin-vec",
- "thread_local",
- "tracing",
- "url",
- "usvg",
- "web-time",
- "writeable",
- "wuff",
-]
-
-[[package]]
-name = "blitz-examples"
-version = "0.0.1"
-dependencies = [
- "anyrender",
- "anyrender_vello",
- "anyrender_vello_cpu",
- "anyrender_vello_hybrid",
- "blitz",
- "blitz-dom",
- "blitz-html",
- "blitz-net",
- "blitz-paint",
- "blitz-shell",
- "blitz-traits",
- "blitz-vibey-script",
- "color",
- "dioxus",
- "dioxus-native",
- "env_logger",
- "euclid",
- "image",
- "peniko",
- "png 0.18.1",
- "reqwest",
- "rustc-hash 2.1.3",
- "tokio",
- "tracing-subscriber",
- "url",
- "vello",
- "vello_common",
- "vello_cpu",
- "vello_gpu",
- "wgpu 30.0.1",
- "wgpu_context",
-]
-
-[[package]]
-name = "blitz-html"
-version = "0.3.0-beta.4"
-dependencies = [
- "blitz-dom",
- "blitz-traits",
- "html5ever",
- "tracing",
- "xml5ever",
-]
-
-[[package]]
-name = "blitz-net"
-version = "0.3.0-beta.4"
-dependencies = [
- "blitz-traits",
- "data-url",
- "directories",
- "http-cache",
- "http-cache-reqwest",
- "reqwest",
- "reqwest-middleware",
- "tokio",
- "tracing",
- "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "blitz-paint"
-version = "0.3.0-beta.4"
-dependencies = [
- "anyrender",
- "anyrender_svg",
- "anyrender_vello_cpu",
- "blitz-dom",
- "blitz-traits",
- "bytemuck",
- "color",
- "euclid",
- "kurbo",
- "parley",
- "peniko",
- "skrifa",
- "smallvec",
- "stylo",
- "taffy",
- "tracing",
- "usvg",
-]
-
-[[package]]
-name = "blitz-shell"
-version = "0.3.0-beta.4"
-dependencies = [
- "accesskit",
- "accesskit_xplat",
- "android-activity",
- "anyrender",
- "arboard",
- "atomic_refcell",
- "blitz-dom",
- "blitz-paint",
- "blitz-traits",
- "data-url",
- "futures-util",
- "keyboard-types 0.8.3",
- "rfd",
- "tracing",
- "wasm-bindgen",
- "web-sys",
- "web-time",
- "winit",
-]
-
-[[package]]
-name = "blitz-test-harness"
-version = "0.3.0-beta.4"
-dependencies = [
- "blitz-dom",
- "blitz-html",
- "blitz-traits",
- "dioxus-core",
- "dioxus-native-dom",
- "keyboard-types 0.8.3",
- "smol_str",
-]
-
-[[package]]
-name = "blitz-tests"
-version = "0.3.0-beta.4"
-dependencies = [
- "accesskit",
- "anyrender",
- "anyrender_vello_cpu",
- "blitz-dom",
- "blitz-html",
- "blitz-paint",
- "blitz-test-harness",
- "blitz-traits",
- "cursor-icon",
- "dioxus",
- "dioxus-core",
- "dioxus-native-dom",
- "keyboard-types 0.8.3",
- "markup5ever",
- "stylo",
- "taffy",
- "test-that",
- "usvg",
-]
-
-[[package]]
-name = "blitz-traits"
-version = "0.3.0-beta.4"
-dependencies = [
- "atomic_refcell",
- "bitflags 2.13.2",
- "bytes",
- "cursor-icon",
- "http",
- "keyboard-types 0.8.3",
- "serde",
- "smol_str",
- "url",
-]
-
-[[package]]
-name = "blitz-vibey-script"
-version = "0.3.0-beta.4"
-dependencies = [
- "blitz-dom",
- "blitz-html",
- "blitz-traits",
- "boa_engine",
- "boa_gc",
- "boa_runtime",
- "data-url",
- "icu_properties",
- "keyboard-types 0.8.3",
- "log",
- "markup5ever",
- "stylo",
- "tracing",
- "url",
- "web-time",
-]
-
-[[package]]
 name = "block"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1397,12 +1401,12 @@ dependencies = [
  "anyrender",
  "anyrender_serialize",
  "anyrender_vello_cpu",
- "blitz-dom",
- "blitz-html",
- "blitz-net",
- "blitz-paint",
- "blitz-traits",
- "blitz-vibey-script",
+ "apace-dom",
+ "apace-html",
+ "apace-net",
+ "apace-paint",
+ "apace-traits",
+ "apace-vibey-script",
  "browser-persistence",
  "dioxus-native",
  "image",
@@ -1417,7 +1421,7 @@ dependencies = [
  "tracing-subscriber",
  "usvg",
  "webbrowser",
- "winit",
+ "wingy",
 ]
 
 [[package]]
@@ -2026,8 +2030,8 @@ name = "counter"
 version = "0.1.0"
 dependencies = [
  "android-activity",
- "blitz-dom",
- "blitz-paint",
+ "apace-dom",
+ "apace-paint",
  "dioxus-native",
  "idna_adapter",
 ]
@@ -2269,10 +2273,6 @@ dependencies = [
  "libc",
  "system-deps",
 ]
-
-[[package]]
-name = "debug_timer"
-version = "0.1.3"
 
 [[package]]
 name = "debug_timer"
@@ -2635,12 +2635,12 @@ dependencies = [
  "anyrender_vello",
  "anyrender_vello_cpu",
  "anyrender_vello_hybrid",
- "blitz-dom",
- "blitz-html",
- "blitz-net",
- "blitz-paint",
- "blitz-shell",
- "blitz-traits",
+ "apace-dom",
+ "apace-html",
+ "apace-net",
+ "apace-paint",
+ "apace-shell",
+ "apace-traits",
  "cfg-if",
  "dioxus-asset-resolver",
  "dioxus-cli-config",
@@ -2664,15 +2664,15 @@ dependencies = [
  "tracing",
  "webbrowser",
  "wgpu_context",
- "winit",
+ "wingy",
 ]
 
 [[package]]
 name = "dioxus-native-dom"
 version = "0.7.0"
 dependencies = [
- "blitz-dom",
- "blitz-traits",
+ "apace-dom",
+ "apace-traits",
  "dioxus",
  "dioxus-core",
  "dioxus-html",
@@ -2786,7 +2786,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2835,17 +2835,6 @@ name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
-
-[[package]]
-name = "dpi"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
-
-[[package]]
-name = "dpi"
-version = "0.1.2"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
 
 [[package]]
 name = "drm"
@@ -3085,7 +3074,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5422,7 +5411,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6274,7 +6263,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31c2ba47171f8376a1cd74f8d575f1d729c033fc007f59a9da3688c31187264b"
 dependencies = [
  "anyrender",
- "debug_timer 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debug_timer",
  "pixels",
 ]
 
@@ -6704,12 +6693,12 @@ dependencies = [
  "anyrender_vello",
  "anyrender_vello_cpu",
  "anyrender_vello_hybrid",
- "blitz-dom",
- "blitz-html",
- "blitz-net",
- "blitz-paint",
- "blitz-shell",
- "blitz-traits",
+ "apace-dom",
+ "apace-html",
+ "apace-net",
+ "apace-paint",
+ "apace-shell",
+ "apace-traits",
  "comrak",
  "image",
  "notify",
@@ -6718,7 +6707,7 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "url",
- "winit",
+ "wingy",
 ]
 
 [[package]]
@@ -7013,7 +7002,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7626,7 +7615,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "809f260e686014e0222158362d571a7813cd836a27b7e51ed7e1dcf39ce08378"
 dependencies = [
  "anyrender",
- "debug_timer 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "debug_timer",
  "kurbo",
  "peniko",
  "softbuffer",
@@ -7862,13 +7851,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "stylo_taffy"
+name = "stylo_takia"
 version = "0.3.0-beta.4"
 dependencies = [
  "bitflags 2.13.2",
  "stylo",
  "stylo_atoms",
- "taffy",
+ "takia",
 ]
 
 [[package]]
@@ -8016,20 +8005,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "taffy"
+name = "tag_ptr"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0e973b34477b7823833469eb0f5a3a60370fef7a453e02d751b59180d0a5a05"
+
+[[package]]
+name = "takia"
 version = "0.15.0"
-source = "git+https://github.com/glory-rs/taffy?rev=dd7914fba2e6e0b5d8a2c8854d764a2ade817efd#dd7914fba2e6e0b5d8a2c8854d764a2ade817efd"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8ae36ee56baa5536b2385767ee6db86f6de10264e19cc828da01f7c5d8015d5"
 dependencies = [
  "serde",
  "slotmap",
  "smallvec",
 ]
-
-[[package]]
-name = "tag_ptr"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0e973b34477b7823833469eb0f5a3a60370fef7a453e02d751b59180d0a5a05"
 
 [[package]]
 name = "tap"
@@ -8061,10 +8051,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8099,7 +8089,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8c27177b12a6399ffc08b98f76f7c9a1f4fe9fc967c784c5a071fa8d93cf7e1"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8601,9 +8591,9 @@ name = "transparent"
 version = "0.1.0"
 dependencies = [
  "android-activity",
- "blitz-dom",
- "blitz-paint",
- "blitz-traits",
+ "apace-dom",
+ "apace-paint",
+ "apace-traits",
  "dioxus-native",
  "idna_adapter",
 ]
@@ -9128,16 +9118,16 @@ name = "wasm_hello"
 version = "0.0.0"
 dependencies = [
  "anyrender_vello_hybrid",
- "blitz-dom",
- "blitz-html",
- "blitz-shell",
+ "apace-dom",
+ "apace-html",
+ "apace-shell",
  "console_error_panic_hook",
  "parley",
  "tracing",
  "tracing-wasm",
  "wasm-bindgen",
  "web-sys",
- "winit",
+ "wingy",
 ]
 
 [[package]]
@@ -9726,11 +9716,11 @@ dependencies = [
  "anyrender",
  "anyrender_vello",
  "anyrender_vello_hybrid",
- "blitz-dom",
- "blitz-html",
- "blitz-paint",
- "blitz-shell",
- "blitz-traits",
+ "apace-dom",
+ "apace-html",
+ "apace-paint",
+ "apace-shell",
+ "apace-traits",
  "bytemuck",
  "color",
  "dioxus-native",
@@ -9784,7 +9774,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10129,55 +10119,57 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 
 [[package]]
-name = "winit"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "105065974fb310666dc1d8a6de02f8483e68855a3990bed69ac78eb25aac91f0"
 dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.5",
  "smol_str",
  "tracing",
- "winit-android",
- "winit-appkit",
- "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
- "winit-orbital",
- "winit-uikit",
- "winit-wayland",
- "winit-web",
- "winit-win32",
- "winit-x11",
+ "wingy-android",
+ "wingy-appkit",
+ "wingy-common",
+ "wingy-core",
+ "wingy-dpi",
+ "wingy-orbital",
+ "wingy-uikit",
+ "wingy-wayland",
+ "wingy-web",
+ "wingy-win32",
+ "wingy-x11",
 ]
 
 [[package]]
-name = "winit-android"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-android"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "932ab55306a8fe08c36d980ad5db5c6238b8fc5ca5eaab35360ce9c9a1a0b89e"
 dependencies = [
  "android-activity",
  "bitflags 2.13.2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "ndk",
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-appkit"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-appkit"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f3564ec6695ad99023d68b65a09d6c8c480406ebf9c04e1f74b4e89fd0a19d7"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -10187,82 +10179,77 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-common",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-common"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-common"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "546e2c1ecf997c4c6b6ec88ce58188ab70dbb823e0637659aa36274c5aafe19e"
 dependencies = [
  "block2 0.6.2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "memmap2 0.9.11",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-core",
+ "wingy-dpi",
  "x11-dl",
  "xkbcommon-dl",
 ]
 
 [[package]]
-name = "winit-core"
-version = "0.31.0-beta.4"
+name = "wingy-core"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74158ad0526ab0f1e850b89f63a4513f4fee9178ef72b408bfb37f30a429d62e"
+checksum = "0ca25aa2e02d6e7ae75252871ec17d3c2ddeceedbc9a52ad193f79e8a65c5f89"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
- "dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "keyboard-types 0.8.3",
  "raw-window-handle",
  "smol_str",
  "web-time",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-core"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
-dependencies = [
- "bitflags 2.13.2",
- "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
- "keyboard-types 0.8.3",
- "raw-window-handle",
- "smol_str",
- "web-time",
-]
+name = "wingy-dpi"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b73b8b020bc6d444275f260f3af541470f1bc7b5ba9e712d9fd49aa3aa42dff"
 
 [[package]]
-name = "winit-orbital"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-orbital"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd5db5755c3fa4b665c5bc68ac5792d3574403a63798190326d66661fd93b24d"
 dependencies = [
  "bitflags 2.13.2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "libredox",
  "orbclient",
  "raw-window-handle",
  "redox_event",
  "smol_str",
  "tracing",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-uikit"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-uikit"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7a00bfd4e25107a109d165eb3ffb465264c55fc042d49b63943d99ecbc276a5"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "objc2 0.6.5",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -10270,19 +10257,20 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "tracing",
- "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-common",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-wayland"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-wayland"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba01d46aec13445e14977349f5cd1c8e4aecfcaf540ffbc45dd59dcbfcd3e201"
 dependencies = [
  "bitflags 2.13.2",
  "calloop",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "foldhash 0.2.0",
  "libc",
  "memmap2 0.9.11",
@@ -10297,20 +10285,21 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-plasma",
- "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-common",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-web"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-web"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ea2239ebd0e0d7553eb50fd1daa990b478ef7c774f54a263cf91b99a66d65e8"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.2",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -10320,45 +10309,48 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-win32"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-win32"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a6a7eb62d3fc54cb93c538d610e4694984e547b89975f96a1d0bed63db08e52"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "percent-encoding",
  "raw-window-handle",
  "smol_str",
  "tracing",
  "unicode-segmentation",
  "windows-sys 0.61.2",
- "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-common",
+ "wingy-core",
+ "wingy-dpi",
 ]
 
 [[package]]
-name = "winit-x11"
-version = "0.31.0-beta.4"
-source = "git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9#3b6f5a09697acb936567af64e53c915b0b1a2af9"
+name = "wingy-x11"
+version = "0.31.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "651f9f64f09dee3d453e75542e477bc14350a38c28295de734e19d2eddcba8bb"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
  "calloop",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
  "libc",
  "percent-encoding",
  "raw-window-handle",
  "rustix 1.1.5",
  "smol_str",
  "tracing",
- "winit-common",
- "winit-core 0.31.0-beta.4 (git+https://github.com/glory-rs/winit?rev=3b6f5a09697acb936567af64e53c915b0b1a2af9)",
+ "wingy-common",
+ "wingy-core",
+ "wingy-dpi",
  "x11-dl",
  "x11rb 0.14.0",
  "xkbcommon-dl",
@@ -10395,13 +10387,13 @@ dependencies = [
  "anyrender",
  "anyrender_vello",
  "anyrender_vello_cpu",
+ "apace-dom",
+ "apace-html",
+ "apace-paint",
+ "apace-traits",
+ "apace-vibey-script",
  "atomic_float",
  "bitflags 2.13.2",
- "blitz-dom",
- "blitz-html",
- "blitz-paint",
- "blitz-traits",
- "blitz-vibey-script",
  "data-url",
  "dify",
  "env_logger",
@@ -10424,7 +10416,7 @@ dependencies = [
  "stylo",
  "stylo_traits",
  "supports-hyperlinks",
- "taffy",
+ "takia",
  "tempfile",
  "terminal-link",
  "thread_local",

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use blitz_dom::{BaseDocument, Document as _, Node};
+use apace_dom::{BaseDocument, Document as _, Node};
 use log::warn;
 use style_traits::ToCss;
 
@@ -108,7 +108,7 @@ fn check_layout(
             let mut name = format!("{subtest_selector} {}", idx + 1);
             if let Some(title) = document
                 .get_node(root_id)
-                .and_then(|node| node.attr(blitz_dom::local_name!("title")))
+                .and_then(|node| node.attr(apace_dom::local_name!("title")))
                 .filter(|title| !title.is_empty())
             {
                 name.push_str(": ");
@@ -261,8 +261,8 @@ fn assert_with_tolerance(expected: f32, actual: f32) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use blitz_dom::DocumentConfig;
-    use blitz_html::HtmlDocument;
+    use apace_dom::DocumentConfig;
+    use apace_html::HtmlDocument;
 
     use super::*;
 

@@ -1,8 +1,8 @@
-use blitz_traits::net::Url;
+use apace_traits::net::Url;
 use dioxus_native::prelude::*;
 use dioxus_native::use_window_event;
-use winit::event::WindowEvent;
-use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
+use wingy::event::WindowEvent;
+use wingy::keyboard::{KeyCode, ModifiersState, PhysicalKey};
 
 use crate::tab::{Favicon, Tab, TabId, TabStoreExt, TabStoreImplExt, tab_display_title};
 

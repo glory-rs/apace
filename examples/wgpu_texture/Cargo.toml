@@ -18,11 +18,11 @@ anyrender = { workspace = true }
 anyrender_vello = { workspace = true, optional = true }
 anyrender_vello_hybrid = { workspace = true, optional = true }
 peniko = { workspace = true }
-blitz-traits = { workspace = true}
-blitz-dom = { workspace = true, features = ["tracing", "custom-widget"] }
-blitz-paint = { workspace = true, features = ["custom-widget"] }
-blitz-html = { workspace = true }
-blitz-shell = { workspace = true, features = ["tracing"] }
+apace-traits = { workspace = true}
+apace-dom = { workspace = true, features = ["tracing", "custom-widget"] }
+apace-paint = { workspace = true, features = ["custom-widget"] }
+apace-html = { workspace = true }
+apace-shell = { workspace = true, features = ["tracing"] }
 dioxus-native = { workspace = true, features = ["system-fonts", "prelude"] }
 wgpu_context = { workspace = true }
 wgpu = { workspace = true }

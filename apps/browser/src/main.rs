@@ -2,7 +2,7 @@
 #![cfg_attr(all(not(test), target_os = "windows"), windows_subsystem = "windows")]
 #![allow(clippy::collapsible_if)]
 
-//! A web browser with UI powered by Dioxus Native and content rendering powered by Blitz
+//! A web browser with UI powered by Dioxus Native and content rendering powered by Apace
 
 #[cfg(feature = "mimalloc")]
 #[global_allocator]
@@ -10,13 +10,13 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use std::sync::Arc;
 
-use blitz_traits::net::Url;
+use apace_traits::net::Url;
 use dioxus_native::{NodeHandle, WindowAttributes, prelude::*, use_back_button};
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::WindowAttributesMacOS;
+use wingy::platform::macos::WindowAttributesMacOS;
 
-pub(crate) type StdNetProvider = blitz_net::Provider;
+pub(crate) type StdNetProvider = apace_net::Provider;
 
 mod about_pages;
 mod browser_history;
@@ -42,7 +42,7 @@ use tab_strip::TabStrip;
 use toolbar::Toolbar;
 use url_suggestions::provide_url_suggester;
 #[cfg(target_os = "windows")]
-use winit::platform::windows::WinIcon;
+use wingy::platform::windows::WinIcon;
 
 static BROWSER_UI_STYLES: Asset = asset!("../assets/browser.css");
 pub(crate) const IS_MOBILE: bool = cfg!(any(target_os = "android", target_os = "ios"));
@@ -144,7 +144,7 @@ fn app() -> Element {
         active_tab(tabs, active_tab_id()).go_back();
     });
 
-    // HACK: Winit doesn't support "safe area" on Android yet.
+    // HACK: Wingy doesn't support "safe area" on Android yet.
     // So we just hardcode a fallback safe area.
     const TOP_PAD: &str = if cfg!(target_os = "android") {
         "30px"

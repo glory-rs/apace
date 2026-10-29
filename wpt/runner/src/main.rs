@@ -3,10 +3,10 @@ use anyrender::ImageRenderer as _;
 use anyrender_vello::VelloImageRenderer;
 #[cfg(feature = "cpu")]
 use anyrender_vello_cpu::VelloCpuImageRenderer as VelloImageRenderer;
+use apace_dom::net::Resource;
+use apace_traits::navigation::{DummyNavigationProvider, NavigationProvider};
+use apace_traits::shell::{ColorScheme, Viewport};
 use atomic_float::AtomicF64;
-use blitz_dom::net::Resource;
-use blitz_traits::navigation::{DummyNavigationProvider, NavigationProvider};
-use blitz_traits::shell::{ColorScheme, Viewport};
 use panic_backtrace::StashedPanicInfo;
 use parley::FontContext;
 use report::{generate_expectations, generate_report};

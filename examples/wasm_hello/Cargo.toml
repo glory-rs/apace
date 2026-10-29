@@ -10,11 +10,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyrender_vello_hybrid = { workspace = true, features = ["webgl"] }
-blitz-dom = { workspace = true, features = ["woff"] }
-blitz-html = { workspace = true }
-blitz-shell = { workspace = true, default-features = false, features = ["tracing"]}
+apace-dom = { workspace = true, features = ["woff"] }
+apace-html = { workspace = true }
+apace-shell = { workspace = true, default-features = false, features = ["tracing"]}
 
-winit = { workspace = true }
+wingy = { workspace = true }
 
 # Browsers don't expose system fonts to wasm, so we register a bundled font
 # directly with the parley FontContext.

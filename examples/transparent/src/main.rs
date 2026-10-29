@@ -4,7 +4,7 @@
 //! An example of a Dioxus Native app with a transparent window background.
 //!
 //! Transparency requires three things to line up:
-//!   1. The winit window itself must be created as transparent
+//!   1. The wingy window itself must be created as transparent
 //!      (`WindowAttributes::with_transparent(true)`).
 //!   2. The renderer must composite the surface using an alpha-aware mode and
 //!      clear each frame to a transparent base color (via the dioxus-native

@@ -1,10 +1,10 @@
-use blitz_dom::{
-    BaseDocument, Node, ScrollBehavior as BlitzScrollBehavior,
-    ScrollLogicalPosition as BlitzScrollLogicalPosition,
+use apace_dom::{
+    BaseDocument, Node, ScrollBehavior as ApaceScrollBehavior,
+    ScrollLogicalPosition as ApaceScrollLogicalPosition,
 };
-use blitz_traits::events::{
-    BlitzKeyEvent, BlitzPointerEvent, BlitzPointerId, BlitzScrollEvent, BlitzWheelDelta,
-    BlitzWheelEvent, MouseEventButton,
+use apace_traits::events::{
+    ApaceKeyEvent, ApacePointerEvent, ApacePointerId, ApaceScrollEvent, ApaceWheelDelta,
+    ApaceWheelEvent, MouseEventButton,
 };
 use dioxus_html::{
     AnimationData, CancelData, ClipboardData, CompositionData, DragData, FocusData, FormData,
@@ -41,7 +41,7 @@ pub struct NativeConverter {}
 
 impl HtmlEventConverter for NativeConverter {
     fn convert_cancel_data(&self, _event: &PlatformEventData) -> CancelData {
-        unimplemented!("todo: convert_cancel_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_cancel_data in dioxus-native. requires support in apace")
     }
 
     fn convert_form_data(&self, event: &PlatformEventData) -> FormData {
@@ -58,7 +58,7 @@ impl HtmlEventConverter for NativeConverter {
 
     fn convert_keyboard_data(&self, event: &PlatformEventData) -> KeyboardData {
         event
-            .downcast::<BlitzKeyboardData>()
+            .downcast::<ApaceKeyboardData>()
             .unwrap()
             .clone()
             .into()
@@ -69,27 +69,27 @@ impl HtmlEventConverter for NativeConverter {
     }
 
     fn convert_animation_data(&self, _event: &PlatformEventData) -> AnimationData {
-        unimplemented!("todo: convert_animation_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_animation_data in dioxus-native. requires support in apace")
     }
 
     fn convert_clipboard_data(&self, _event: &PlatformEventData) -> ClipboardData {
-        unimplemented!("todo: convert_clipboard_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_clipboard_data in dioxus-native. requires support in apace")
     }
 
     fn convert_composition_data(&self, _event: &PlatformEventData) -> CompositionData {
-        unimplemented!("todo: convert_composition_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_composition_data in dioxus-native. requires support in apace")
     }
 
     fn convert_drag_data(&self, _event: &PlatformEventData) -> DragData {
-        unimplemented!("todo: convert_drag_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_drag_data in dioxus-native. requires support in apace")
     }
 
     fn convert_image_data(&self, _event: &PlatformEventData) -> ImageData {
-        unimplemented!("todo: convert_image_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_image_data in dioxus-native. requires support in apace")
     }
 
     fn convert_media_data(&self, _event: &PlatformEventData) -> MediaData {
-        unimplemented!("todo: convert_media_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_media_data in dioxus-native. requires support in apace")
     }
 
     fn convert_mounted_data(&self, event: &PlatformEventData) -> MountedData {
@@ -109,11 +109,11 @@ impl HtmlEventConverter for NativeConverter {
     }
 
     fn convert_selection_data(&self, _event: &PlatformEventData) -> SelectionData {
-        unimplemented!("todo: convert_selection_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_selection_data in dioxus-native. requires support in apace")
     }
 
     fn convert_toggle_data(&self, _event: &PlatformEventData) -> ToggleData {
-        unimplemented!("todo: convert_toggle_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_toggle_data in dioxus-native. requires support in apace")
     }
 
     fn convert_touch_data(&self, event: &PlatformEventData) -> TouchData {
@@ -121,7 +121,7 @@ impl HtmlEventConverter for NativeConverter {
     }
 
     fn convert_transition_data(&self, _event: &PlatformEventData) -> TransitionData {
-        unimplemented!("todo: convert_transition_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_transition_data in dioxus-native. requires support in apace")
     }
 
     fn convert_wheel_data(&self, event: &PlatformEventData) -> WheelData {
@@ -129,11 +129,11 @@ impl HtmlEventConverter for NativeConverter {
     }
 
     fn convert_resize_data(&self, _event: &PlatformEventData) -> ResizeData {
-        unimplemented!("todo: convert_resize_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_resize_data in dioxus-native. requires support in apace")
     }
 
     fn convert_visible_data(&self, _event: &PlatformEventData) -> VisibleData {
-        unimplemented!("todo: convert_visible_data in dioxus-native. requires support in blitz")
+        unimplemented!("todo: convert_visible_data in dioxus-native. requires support in apace")
     }
 }
 
@@ -244,20 +244,20 @@ impl RenderedElementBacking for NodeHandle {
         }
 
         let behavior = match options.behavior {
-            ScrollBehavior::Smooth => BlitzScrollBehavior::Smooth,
-            ScrollBehavior::Instant => BlitzScrollBehavior::Instant,
+            ScrollBehavior::Smooth => ApaceScrollBehavior::Smooth,
+            ScrollBehavior::Instant => ApaceScrollBehavior::Instant,
         };
         let vertical = match options.vertical {
-            ScrollLogicalPosition::Start => BlitzScrollLogicalPosition::Start,
-            ScrollLogicalPosition::Center => BlitzScrollLogicalPosition::Center,
-            ScrollLogicalPosition::End => BlitzScrollLogicalPosition::End,
-            ScrollLogicalPosition::Nearest => BlitzScrollLogicalPosition::Nearest,
+            ScrollLogicalPosition::Start => ApaceScrollLogicalPosition::Start,
+            ScrollLogicalPosition::Center => ApaceScrollLogicalPosition::Center,
+            ScrollLogicalPosition::End => ApaceScrollLogicalPosition::End,
+            ScrollLogicalPosition::Nearest => ApaceScrollLogicalPosition::Nearest,
         };
         let horizontal = match options.horizontal {
-            ScrollLogicalPosition::Start => BlitzScrollLogicalPosition::Start,
-            ScrollLogicalPosition::Center => BlitzScrollLogicalPosition::Center,
-            ScrollLogicalPosition::End => BlitzScrollLogicalPosition::End,
-            ScrollLogicalPosition::Nearest => BlitzScrollLogicalPosition::Nearest,
+            ScrollLogicalPosition::Start => ApaceScrollLogicalPosition::Start,
+            ScrollLogicalPosition::Center => ApaceScrollLogicalPosition::Center,
+            ScrollLogicalPosition::End => ApaceScrollLogicalPosition::End,
+            ScrollLogicalPosition::Nearest => ApaceScrollLogicalPosition::Nearest,
         };
         doc.scroll_into_view(node_id, behavior, vertical, horizontal);
 
@@ -283,8 +283,8 @@ impl RenderedElementBacking for NodeHandle {
             coordinates.x,
             coordinates.y,
             match behavior {
-                ScrollBehavior::Smooth => BlitzScrollBehavior::Smooth,
-                ScrollBehavior::Instant => BlitzScrollBehavior::Instant,
+                ScrollBehavior::Smooth => ApaceScrollBehavior::Smooth,
+                ScrollBehavior::Instant => ApaceScrollBehavior::Instant,
             },
         );
 
@@ -337,15 +337,15 @@ impl HasFileData for NativeFormData {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct BlitzKeyboardData(pub(crate) BlitzKeyEvent);
+pub(crate) struct ApaceKeyboardData(pub(crate) ApaceKeyEvent);
 
-impl ModifiersInteraction for BlitzKeyboardData {
+impl ModifiersInteraction for ApaceKeyboardData {
     fn modifiers(&self) -> Modifiers {
         convert_modifiers(self.0.modifiers)
     }
 }
 
-impl HasKeyboardData for BlitzKeyboardData {
+impl HasKeyboardData for ApaceKeyboardData {
     fn key(&self) -> Key {
         convert_key(&self.0.key)
     }
@@ -372,7 +372,7 @@ impl HasKeyboardData for BlitzKeyboardData {
 }
 
 #[derive(Clone)]
-pub struct NativePointerData(pub(crate) BlitzPointerEvent);
+pub struct NativePointerData(pub(crate) ApacePointerEvent);
 
 impl InteractionLocation for NativePointerData {
     fn client_coordinates(&self) -> ClientPoint {
@@ -432,17 +432,17 @@ impl HasPointerData for NativePointerData {
 
     fn pointer_id(&self) -> i32 {
         match self.0.id {
-            BlitzPointerId::Mouse => 0,
-            BlitzPointerId::Pen => 0,
-            BlitzPointerId::Finger(id) => id as i32,
+            ApacePointerId::Mouse => 0,
+            ApacePointerId::Pen => 0,
+            ApacePointerId::Finger(id) => id as i32,
         }
     }
 
     fn pointer_type(&self) -> String {
         match self.0.id {
-            BlitzPointerId::Mouse => String::from("mouse"),
-            BlitzPointerId::Pen => String::from("pen"),
-            BlitzPointerId::Finger(_) => String::from("touch"),
+            ApacePointerId::Mouse => String::from("mouse"),
+            ApacePointerId::Pen => String::from("pen"),
+            ApacePointerId::Finger(_) => String::from("touch"),
         }
     }
 
@@ -473,12 +473,12 @@ impl HasPointerData for NativePointerData {
 
 /// Touch event data exposed to Dioxus Native application code.
 ///
-/// Blitz tracks input via pointer events, so a touch event is generated from the
+/// Apace tracks input via pointer events, so a touch event is generated from the
 /// pointer event of the finger that triggered it (`touches_changed`). The full
 /// list of concurrent touches is carried on the triggering event's
-/// [`BlitzPointerEvent::active_pointers`] list and reported via `touches`.
+/// [`ApacePointerEvent::active_pointers`] list and reported via `touches`.
 #[derive(Clone)]
-pub struct NativeTouchData(pub(crate) BlitzPointerEvent);
+pub struct NativeTouchData(pub(crate) ApacePointerEvent);
 
 impl ModifiersInteraction for NativeTouchData {
     fn modifiers(&self) -> Modifiers {
@@ -514,7 +514,7 @@ impl HasTouchData for NativeTouchData {
 }
 
 #[derive(Clone)]
-pub struct NativeTouchPointData(BlitzPointerEvent);
+pub struct NativeTouchPointData(ApacePointerEvent);
 
 impl InteractionLocation for NativeTouchPointData {
     fn client_coordinates(&self) -> ClientPoint {
@@ -533,8 +533,8 @@ impl InteractionLocation for NativeTouchPointData {
 impl HasTouchPointData for NativeTouchPointData {
     fn identifier(&self) -> i32 {
         match self.0.id {
-            BlitzPointerId::Finger(id) => id as i32,
-            BlitzPointerId::Mouse | BlitzPointerId::Pen => 0,
+            ApacePointerId::Finger(id) => id as i32,
+            ApacePointerId::Mouse | ApacePointerId::Pen => 0,
         }
     }
 
@@ -543,12 +543,12 @@ impl HasTouchPointData for NativeTouchPointData {
     }
 
     fn radius(&self) -> ScreenPoint {
-        // TODO: expose real touch radius once blitz tracks it
+        // TODO: expose real touch radius once apace tracks it
         ScreenPoint::new(1.0, 1.0)
     }
 
     fn rotation(&self) -> f64 {
-        // TODO: expose real touch rotation once blitz tracks it
+        // TODO: expose real touch rotation once apace tracks it
         0.0
     }
 
@@ -566,7 +566,7 @@ impl HasFocusData for NativeFocusData {
 }
 
 #[derive(Clone)]
-pub struct NativeScrollData(pub(crate) BlitzScrollEvent);
+pub struct NativeScrollData(pub(crate) ApaceScrollEvent);
 impl HasScrollData for NativeScrollData {
     fn as_any(&self) -> &dyn Any {
         self as &dyn Any
@@ -598,7 +598,7 @@ impl HasScrollData for NativeScrollData {
 }
 
 #[derive(Clone)]
-pub struct NativeWheelData(pub(crate) BlitzWheelEvent);
+pub struct NativeWheelData(pub(crate) ApaceWheelEvent);
 impl HasWheelData for NativeWheelData {
     fn as_any(&self) -> &dyn Any {
         self as &dyn Any
@@ -606,10 +606,10 @@ impl HasWheelData for NativeWheelData {
 
     fn delta(&self) -> WheelDelta {
         match self.0.delta {
-            BlitzWheelDelta::Lines(x, y) => {
+            ApaceWheelDelta::Lines(x, y) => {
                 dioxus_html::geometry::WheelDelta::Lines(Vector3D::new(x, y, 0.0))
             }
-            BlitzWheelDelta::Pixels(x, y) => {
+            ApaceWheelDelta::Pixels(x, y) => {
                 dioxus_html::geometry::WheelDelta::Pixels(Vector3D::new(x, y, 0.0))
             }
         }
@@ -677,13 +677,13 @@ pub fn synthetic_form_event(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use blitz_traits::events::{
-        BlitzPointerId, MouseEventButton, MouseEventButtons, Point, PointerCoords, PointerDetails,
+    use apace_traits::events::{
+        ApacePointerId, MouseEventButton, MouseEventButtons, Point, PointerCoords, PointerDetails,
     };
 
-    fn finger_event(id: u64, x: f32, y: f32) -> BlitzPointerEvent {
-        BlitzPointerEvent {
-            id: BlitzPointerId::Finger(id),
+    fn finger_event(id: u64, x: f32, y: f32) -> ApacePointerEvent {
+        ApacePointerEvent {
+            id: ApacePointerId::Finger(id),
             is_primary: id == 0,
             coords: PointerCoords {
                 page_x: x,

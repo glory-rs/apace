@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use blitz_dom::{BaseDocument, DocumentConfig};
-use blitz_html::{HtmlDocument, HtmlProvider};
-use blitz_traits::net::{Request, Url};
+use apace_dom::{BaseDocument, DocumentConfig};
+use apace_html::{HtmlDocument, HtmlProvider};
+use apace_traits::net::{Request, Url};
 use dioxus_native::{NodeHandle, SubDocumentAttr, prelude::*};
 
 use crate::about_pages::AboutPage;

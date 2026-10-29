@@ -1,7 +1,7 @@
-//! Integration between Dioxus and Blitz
+//! Integration between Dioxus and Apace
 use crate::{NodeId, qual_name, trace, write_once_attr::WriteOnceAttr};
-use blitz_dom::{BaseDocument, Document, DocumentMutator, Widget};
-use blitz_traits::events::DomEventKind;
+use apace_dom::{BaseDocument, Document, DocumentMutator, Widget};
+use apace_traits::events::DomEventKind;
 use dioxus_core::{
     AttributeValue, ElementId, Template, TemplateAttribute, TemplateNode, WriteMutations,
 };
@@ -477,8 +477,8 @@ fn is_bool_attr(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::{DioxusDocument, DocumentConfig};
-    use blitz_dom::Document as _;
-    use blitz_dom::LocalName;
+    use apace_dom::Document as _;
+    use apace_dom::LocalName;
     use dioxus::prelude::*;
     use dioxus_core::ScopeId;
     use std::{cell::Cell, rc::Rc};

@@ -3,7 +3,7 @@
 **Review date: 7 October 2026.** The dependency inventory and findings below are
 correct at the time of writing and may change as dependencies are updated.
 
-Blitz's own Rust code is generally `MIT OR Apache-2.0`.
+Apace's own Rust code is generally `MIT OR Apache-2.0`.
 The dependency graph is **not entirely permissively licensed**:
 Servo/Stylo and several other dependencies require MPL-2.0. MPL permits use in
 commercial, closed-source applications, including static linking, but imposes
@@ -35,12 +35,12 @@ to make CI green: review its terms and the dependency's actual license files fir
 
 ## Review of library dependencies
 
-The review below covers the `blitz` and `dioxus-native` libraries and their
+The review below covers the `apace` and `dioxus-native` libraries and their
 runtime/build dependencies, with all features of those library crates enabled and
 no target filtering. It excludes dev-only and app-only dependencies; CI
 intentionally checks the broader workspace.
 
-cargo-deny 0.20.2 identified 426 packages in the `blitz` graph and 675 in the
+cargo-deny 0.20.2 identified 426 packages in the `apace` graph and 675 in the
 `dioxus-native` graph, with 676 distinct packages across the two graphs.
 
 | License family | Commercial/proprietary use | Main distribution obligations |
@@ -90,7 +90,7 @@ into an application's files can make those files subject to MPL. See
   describe system libraries, code downloaded by build scripts (for example the
   optional Skia backend), fonts, or application content.
 - The bundled Mozilla bullet font is outside the Cargo license check, as are the
-  MPL-licensed stylesheets in `blitz-dom/assets`. Preserve font notices and verify
+  MPL-licensed stylesheets in `apace-dom/assets`. Preserve font notices and verify
   provenance/licensing for redistributed font assets before release. The bundled
   bullet font identifies Mozilla and Mats Palmgren but does not embed a license
   notice. Mozilla's

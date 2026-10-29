@@ -1,12 +1,12 @@
-# Building Blitz Examples for WASM
+# Building Apace Examples for WASM
 
-Blitz runs in the browser on `wasm32-unknown-unknown` via [trunk]. The renderer is `anyrender_vello_hybrid` with the `webgl` feature; system fonts aren't available in the browser, so wasm examples bundle a font (DejaVu Sans) at compile time.
+Apace runs in the browser on `wasm32-unknown-unknown` via [trunk]. The renderer is `anyrender_vello_hybrid` with the `webgl` feature; system fonts aren't available in the browser, so wasm examples bundle a font (DejaVu Sans) at compile time.
 
 ## Examples that target wasm
 
 | Example       | Description                                                                |
 | ------------- | -------------------------------------------------------------------------- |
-| `wasm_hello`  | Minimal blitz-shell proof. Drives `BlitzApplication` against static HTML.  |
+| `wasm_hello`  | Minimal apace-shell proof. Drives `ApaceApplication` against static HTML.  |
 | `seven_guis`  | The [7GUIs](https://7guis.github.io/7guis/) benchmark, built with Dioxus. Also runs natively. |
 | `todomvc`     | Classic TodoMVC, built with Dioxus. Also runs natively.                    |
 

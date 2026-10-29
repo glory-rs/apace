@@ -1,19 +1,19 @@
-use blitz_shell::{BlitzApplication, BlitzShellProxy, View};
+use apace_shell::{ApaceApplication, ApaceShellProxy, View};
 use dioxus_core::{ScopeId, provide_context};
 use dioxus_history::{History, MemoryHistory};
 use std::rc::Rc;
 use std::sync::Arc;
-use winit::application::ApplicationHandler;
-use winit::event::{StartCause, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::window::WindowId;
+use wingy::application::ApplicationHandler;
+use wingy::event::{StartCause, WindowEvent};
+use wingy::event_loop::ActiveEventLoop;
+use wingy::window::WindowId;
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::ApplicationHandlerExtMacOS;
+use wingy::platform::macos::ApplicationHandlerExtMacOS;
 
 use crate::DioxusNativeWindowRenderer;
 use crate::event_handlers::WindowEventHandlers;
-use crate::{BlitzShellEvent, DioxusDocument, WindowConfig, contexts::DioxusNativeDocument};
+use crate::{ApaceShellEvent, DioxusDocument, WindowConfig, contexts::DioxusNativeDocument};
 
 /// Dioxus-native specific event type
 pub enum DioxusNativeEvent {
@@ -34,19 +34,19 @@ pub enum DioxusNativeEvent {
 
 pub struct DioxusNativeApplication {
     pending_window: Option<WindowConfig<DioxusNativeWindowRenderer>>,
-    inner: BlitzApplication<DioxusNativeWindowRenderer>,
+    inner: ApaceApplication<DioxusNativeWindowRenderer>,
     event_handlers: Rc<WindowEventHandlers>,
 }
 
 impl DioxusNativeApplication {
     pub fn new(
-        proxy: BlitzShellProxy,
-        event_queue: std::sync::mpsc::Receiver<BlitzShellEvent>,
+        proxy: ApaceShellProxy,
+        event_queue: std::sync::mpsc::Receiver<ApaceShellEvent>,
         config: WindowConfig<DioxusNativeWindowRenderer>,
     ) -> Self {
         Self {
             pending_window: Some(config),
-            inner: BlitzApplication::new(proxy, event_queue),
+            inner: ApaceApplication::new(proxy, event_queue),
             event_handlers: Rc::new(WindowEventHandlers::default()),
         }
     }
@@ -139,7 +139,7 @@ impl ApplicationHandler for DioxusNativeApplication {
 
         if let Some(config) = self.pending_window.take() {
             let mut window = View::init(config, event_loop, &self.inner.proxy);
-            let winit_window = Arc::clone(&window.window);
+            let wingy_window = Arc::clone(&window.window);
             let renderer = window.renderer.clone();
             let window_id = window.window_id();
             let doc = window.downcast_doc_mut::<DioxusDocument>();
@@ -167,9 +167,9 @@ impl ApplicationHandler for DioxusNativeApplication {
             doc.vdom
                 .in_scope(ScopeId::ROOT, move || provide_context(renderer));
 
-            // Add winit window
+            // Add wingy window
             doc.vdom
-                .in_scope(ScopeId::ROOT, move || provide_context(winit_window));
+                .in_scope(ScopeId::ROOT, move || provide_context(wingy_window));
 
             // Queue rebuild
             doc.initial_build();
@@ -202,12 +202,12 @@ impl ApplicationHandler for DioxusNativeApplication {
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
         while let Ok(event) = self.inner.event_queue.try_recv() {
             match event {
-                BlitzShellEvent::Embedder(event) => {
+                ApaceShellEvent::Embedder(event) => {
                     if let Some(event) = event.downcast_ref::<DioxusNativeEvent>() {
                         self.handle_dioxus_native_event(event_loop, event);
                     }
                 }
-                event => self.inner.handle_blitz_shell_event(event_loop, event),
+                event => self.inner.handle_apace_shell_event(event_loop, event),
             }
         }
     }

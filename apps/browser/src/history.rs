@@ -1,5 +1,5 @@
-use blitz_traits::navigation::{NavigationOptions, NavigationProvider};
-use blitz_traits::net::Request;
+use apace_traits::navigation::{NavigationOptions, NavigationProvider};
+use apace_traits::net::Request;
 use dioxus_native::prelude::*;
 
 pub type SyncStore<T> = Store<T, CopyValue<T, SyncStorage>>;

@@ -22,7 +22,7 @@ mod link_handler;
 pub mod prelude;
 
 #[cfg(all(feature = "net", not(target_arch = "wasm32")))]
-use blitz_traits::net::NetProvider;
+use apace_traits::net::NetProvider;
 #[doc(inline)]
 pub use dioxus_native_dom::*;
 
@@ -39,7 +39,7 @@ pub use peniko::Color;
 #[cfg_attr(docsrs, doc(cfg(target_os = "android")))]
 /// Set the current [`AndroidApp`](android_activity::AndroidApp).
 pub fn set_android_app(app: android_activity::AndroidApp) {
-    blitz_shell::set_android_app(app);
+    apace_shell::set_android_app(app);
 }
 
 #[cfg(target_os = "android")]
@@ -47,7 +47,7 @@ pub fn set_android_app(app: android_activity::AndroidApp) {
 /// Get the current [`AndroidApp`](android_activity::AndroidApp).
 /// This will panic if the android activity has not been setup with [`set_android_app`].
 pub fn current_android_app() -> android_activity::AndroidApp {
-    blitz_shell::current_android_app()
+    apace_shell::current_android_app()
 }
 
 #[cfg(target_os = "android")]
@@ -60,20 +60,20 @@ pub use {
     wgpu_context::DeviceHandle,
 };
 
-pub use blitz_dom::{FontContext, Widget, build_single_font_ctx};
+pub use apace_dom::{FontContext, Widget, build_single_font_ctx};
 pub use config::Config;
-pub use event_handlers::WinitEventHandlerId;
+pub use event_handlers::WingyEventHandlerId;
 pub use hooks::{use_back_button, use_window_event};
-pub use winit;
-pub use winit::dpi::{LogicalSize, PhysicalSize};
-pub use winit::window::WindowAttributes;
+pub use wingy;
+pub use wingy::dpi::{LogicalSize, PhysicalSize};
+pub use wingy::window::WindowAttributes;
 
-use blitz_shell::{BlitzShellEvent, BlitzShellProxy, WindowConfig, create_default_event_loop};
+use apace_shell::{ApaceShellEvent, ApaceShellProxy, WindowConfig, create_default_event_loop};
 use dioxus_core::{ComponentFunction, Element, VirtualDom, consume_context, use_hook};
 use link_handler::DioxusNativeNavigationProvider;
 use std::any::Any;
 use std::sync::Arc;
-use winit::{
+use wingy::{
     raw_window_handle::{HasWindowHandle as _, RawWindowHandle},
     window::Window,
 };
@@ -149,8 +149,8 @@ pub fn launch_cfg_with_props<P: Clone + 'static, M: 'static>(
         config.window_attributes = window_attributes;
     }
     let event_loop = create_default_event_loop();
-    let winit_proxy = event_loop.create_proxy();
-    let (proxy, event_queue) = BlitzShellProxy::new(winit_proxy);
+    let wingy_proxy = event_loop.create_proxy();
+    let (proxy, event_queue) = ApaceShellProxy::new(wingy_proxy);
 
     // Turn on the runtime and enter it
     #[cfg(feature = "net")]
@@ -170,7 +170,7 @@ pub fn launch_cfg_with_props<P: Clone + 'static, M: 'static>(
         let proxy = proxy.clone();
         dioxus_devtools::connect(move |event| {
             let dxn_event = DioxusNativeEvent::DevserverEvent(event);
-            proxy.send_event(BlitzShellEvent::embedder_event(dxn_event));
+            proxy.send_event(ApaceShellEvent::embedder_event(dxn_event));
         })
     }
 
@@ -185,7 +185,7 @@ pub fn launch_cfg_with_props<P: Clone + 'static, M: 'static>(
     #[cfg(all(feature = "net", not(target_arch = "wasm32")))]
     let net_provider = {
         let net_waker = Some(Arc::new(proxy.clone()) as _);
-        let inner_net_provider = Arc::new(blitz_net::Provider::new(net_waker));
+        let inner_net_provider = Arc::new(apace_net::Provider::new(net_waker));
         vdom.provide_root_context(Arc::clone(&inner_net_provider));
 
         Arc::new(DioxusNativeNetProvider::with_inner(
@@ -201,7 +201,7 @@ pub fn launch_cfg_with_props<P: Clone + 'static, M: 'static>(
 
     #[cfg(feature = "html")]
     let html_parser_provider = {
-        let html_parser = Arc::new(blitz_html::HtmlProvider) as _;
+        let html_parser = Arc::new(apace_html::HtmlProvider) as _;
         vdom.provide_root_context(Arc::clone(&html_parser));
         Some(html_parser)
     };

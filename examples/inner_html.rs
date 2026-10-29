@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use anyrender_vello::VelloWindowRenderer;
-use blitz_dom::DocumentConfig;
-use blitz_html::{HtmlDocument, HtmlProvider};
-use blitz_shell::{BlitzApplication, BlitzShellProxy, WindowConfig, create_default_event_loop};
+use apace_dom::DocumentConfig;
+use apace_html::{HtmlDocument, HtmlProvider};
+use apace_shell::{ApaceApplication, ApaceShellProxy, WindowConfig, create_default_event_loop};
 
 pub fn main() {
     // Create renderer
 
-    // Parse the HTML into a Blitz document
+    // Parse the HTML into a Apace document
     let mut doc = HtmlDocument::from_html(
         HTML,
         DocumentConfig {
@@ -21,10 +21,10 @@ pub fn main() {
     doc.mutate().set_inner_html(node_id, INNER_HTML);
     doc.resolve(0.0);
 
-    // Create the Winit application and window
+    // Create the Wingy application and window
     let event_loop = create_default_event_loop();
-    let (proxy, reciever) = BlitzShellProxy::new(event_loop.create_proxy());
-    let mut application = BlitzApplication::new(proxy, reciever);
+    let (proxy, reciever) = ApaceShellProxy::new(event_loop.create_proxy());
+    let mut application = ApaceApplication::new(proxy, reciever);
     let renderer = VelloWindowRenderer::new();
     let window = WindowConfig::new(Box::new(doc), renderer);
     application.add_window(window);

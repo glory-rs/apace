@@ -1,18 +1,18 @@
 mod readme_application;
 
 mod markdown {
-    use blitz_dom::UserAgentStylesheet;
+    use apace_dom::UserAgentStylesheet;
     use std::sync::LazyLock;
 
     const GITHUB_MD_STYLES: &str = include_str!("../assets/github-markdown.css");
-    const BLITZ_MD_STYLES: &str = include_str!("../assets/blitz-markdown-overrides.css");
+    const APACE_MD_STYLES: &str = include_str!("../assets/apace-markdown-overrides.css");
 
     /// The user-agent stylesheets for rendered markdown, parsed once.
     pub(crate) fn markdown_stylesheets() -> Vec<UserAgentStylesheet> {
         static SHEETS: LazyLock<[UserAgentStylesheet; 2]> = LazyLock::new(|| {
             [
                 UserAgentStylesheet::parse(GITHUB_MD_STYLES),
-                UserAgentStylesheet::parse(BLITZ_MD_STYLES),
+                UserAgentStylesheet::parse(APACE_MD_STYLES),
             ]
         });
         SHEETS.to_vec()
@@ -42,33 +42,33 @@ use anyrender_vello_cpu::VelloCpuWindowRenderer as WindowRenderer;
 #[cfg(feature = "hybrid")]
 use anyrender_vello_hybrid::VelloHybridWindowRenderer as WindowRenderer;
 
-use blitz_dom::DocumentConfig;
-use blitz_dom::UserAgentStylesheet;
-use blitz_html::HtmlDocument;
-use blitz_net::Provider;
-use blitz_traits::navigation::{NavigationOptions, NavigationProvider};
-use blitz_traits::net::Request;
+use apace_dom::DocumentConfig;
+use apace_dom::UserAgentStylesheet;
+use apace_html::HtmlDocument;
+use apace_net::Provider;
+use apace_traits::navigation::{NavigationOptions, NavigationProvider};
+use apace_traits::net::Request;
 use markdown::{markdown_stylesheets, markdown_to_html};
 use notify::{Error as NotifyError, Event as NotifyEvent, RecursiveMode, Watcher as _};
 use readme_application::{ReadmeApplication, ReadmeEvent};
 
-use blitz_shell::{BlitzShellEvent, BlitzShellProxy, WindowConfig, create_default_event_loop};
+use apace_shell::{ApaceShellEvent, ApaceShellProxy, WindowConfig, create_default_event_loop};
 use std::env::current_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::sync::oneshot;
 use url::Url;
-use winit::window::WindowAttributes;
+use wingy::window::WindowAttributes;
 
 struct ReadmeNavigationProvider {
-    proxy: BlitzShellProxy,
+    proxy: ApaceShellProxy,
 }
 
 impl NavigationProvider for ReadmeNavigationProvider {
     fn navigate_to(&self, opts: NavigationOptions) {
         self.proxy
-            .send_event(BlitzShellEvent::Navigate(Box::new(opts)));
+            .send_event(ApaceShellEvent::Navigate(Box::new(opts)));
     }
 }
 
@@ -90,8 +90,8 @@ fn main() {
     let _guard = rt.enter();
 
     let event_loop = create_default_event_loop();
-    let winit_proxy = event_loop.create_proxy();
-    let (proxy, event_queue) = BlitzShellProxy::new(winit_proxy);
+    let wingy_proxy = event_loop.create_proxy();
+    let (proxy, event_queue) = ApaceShellProxy::new(wingy_proxy);
 
     let net_waker = Some(Arc::new(proxy.clone()) as _);
     let net_provider = Arc::new(Provider::new(net_waker));
@@ -146,7 +146,7 @@ fn main() {
     if let Some(path) = file_path {
         let mut watcher =
             notify::recommended_watcher(move |_: Result<NotifyEvent, NotifyError>| {
-                let event = BlitzShellEvent::Embedder(Arc::new(ReadmeEvent));
+                let event = ApaceShellEvent::Embedder(Arc::new(ReadmeEvent));
                 proxy.send_event(event);
             })
             .unwrap();

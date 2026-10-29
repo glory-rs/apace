@@ -1,16 +1,16 @@
-//! Integration between Dioxus and Blitz
+//! Integration between Dioxus and Apace
 use crate::NodeId;
 use crate::events::{
-    BlitzKeyboardData, NativeConverter, NativeFocusData, NativeFormData, NativePointerData,
+    ApaceKeyboardData, NativeConverter, NativeFocusData, NativeFormData, NativePointerData,
     NativeScrollData, NativeTouchData, NativeWheelData, NodeHandle,
 };
 use crate::mutation_writer::{DioxusState, MutationWriter};
 use crate::qual_name;
-use blitz_dom::{
+use apace_dom::{
     Attribute, BaseDocument, DocGuard, DocGuardMut, Document, DocumentConfig, EventDriver,
     EventHandler, Node,
 };
-use blitz_traits::events::{DomEvent, DomEventData, EventState, UiEvent};
+use apace_traits::events::{DomEvent, DomEventData, EventState, UiEvent};
 use dioxus_core::{ElementId, Event, VirtualDom};
 use dioxus_html::{PlatformEventData, set_event_converter};
 use futures_util::task::noop_waker;
@@ -36,12 +36,12 @@ fn get_dioxus_id(node: &Node) -> Option<ElementId> {
         .map(ElementId)
 }
 
-/// Integrates [`BaseDocument`] from  [`blitz-dom`](blitz_dom)  with [`VirtualDom`] from [`dioxus-core`](dioxus_core)
+/// Integrates [`BaseDocument`] from  [`apace-dom`](apace_dom)  with [`VirtualDom`] from [`dioxus-core`](dioxus_core)
 ///
 /// ### Example
 ///
 /// ```rust
-/// use blitz_traits::shell::{Viewport, ColorScheme};
+/// use apace_traits::shell::{Viewport, ColorScheme};
 /// use dioxus_native_dom::{DioxusDocument, DocumentConfig};
 /// use dioxus::prelude::*;
 ///
@@ -118,7 +118,7 @@ impl DioxusDocument {
         mutr.append_children(html_element_id, &[body_element_id]);
 
         // Create another virtual element to hold the root <div id="main"></div> under the html element
-        let main_attr = blitz_dom::Attribute {
+        let main_attr = apace_dom::Attribute {
             name: qual_name("id", None),
             value: "main".to_string(),
         };
@@ -317,7 +317,7 @@ impl EventHandler for DioxusEventHandler<'_> {
             DomEventData::KeyDown(kevent)
             | DomEventData::KeyUp(kevent)
             | DomEventData::KeyPress(kevent) => {
-                Some(wrap_event_data(BlitzKeyboardData(kevent.clone())))
+                Some(wrap_event_data(ApaceKeyboardData(kevent.clone())))
             }
 
             DomEventData::Input(data) => Some(wrap_event_data(NativeFormData {
@@ -363,7 +363,7 @@ impl EventHandler for DioxusEventHandler<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use blitz_dom::DocumentConfig;
+    use apace_dom::DocumentConfig;
     use dioxus::prelude::*;
     use dioxus_core::ScopeId;
     use std::cell::{Cell, RefCell};

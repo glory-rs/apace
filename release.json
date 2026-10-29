@@ -1,0 +1,21 @@
+{
+  "repository": "glory-rs/apace",
+  "title": "Apace",
+  "tag_prefix": "apace-v",
+  "allowed_prefixes": [
+    "apace",
+    "stylo_takia"
+  ],
+  "packages": [
+    "apace_debug_timer",
+    "apace_accesskit",
+    "apace-traits",
+    "stylo_takia",
+    "apace-dom",
+    "apace-paint",
+    "apace-html",
+    "apace-net",
+    "apace-shell",
+    "apace"
+  ]
+}

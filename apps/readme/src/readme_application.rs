@@ -1,28 +1,28 @@
 use std::sync::Arc;
 
 use crate::WindowRenderer;
-use blitz_dom::DocumentConfig;
-use blitz_html::HtmlDocument;
-use blitz_net::Provider;
-use blitz_shell::{BlitzApplication, BlitzShellEvent, BlitzShellProxy, View, WindowConfig};
-use blitz_traits::navigation::{NavigationOptions, NavigationProvider};
+use apace_dom::DocumentConfig;
+use apace_html::HtmlDocument;
+use apace_net::Provider;
+use apace_shell::{ApaceApplication, ApaceShellEvent, ApaceShellProxy, View, WindowConfig};
+use apace_traits::navigation::{NavigationOptions, NavigationProvider};
 use tokio::runtime::Handle;
-use winit::application::ApplicationHandler;
-use winit::event::{Modifiers, StartCause, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
-use winit::keyboard::{KeyCode, PhysicalKey};
+use wingy::application::ApplicationHandler;
+use wingy::event::{Modifiers, StartCause, WindowEvent};
+use wingy::event_loop::ActiveEventLoop;
+use wingy::keyboard::{KeyCode, PhysicalKey};
 #[cfg(target_os = "macos")]
-use winit::platform::macos::ApplicationHandlerExtMacOS;
-use winit::window::{Theme, WindowId};
+use wingy::platform::macos::ApplicationHandlerExtMacOS;
+use wingy::window::{Theme, WindowId};
 
 use crate::fetch;
 use crate::markdown::{markdown_stylesheets, markdown_to_html};
-use blitz_dom::UserAgentStylesheet;
+use apace_dom::UserAgentStylesheet;
 
 pub struct ReadmeEvent;
 
 pub struct ReadmeApplication {
-    inner: BlitzApplication<WindowRenderer>,
+    inner: ApaceApplication<WindowRenderer>,
     handle: tokio::runtime::Handle,
     net_provider: Arc<Provider>,
     raw_url: String,
@@ -33,15 +33,15 @@ pub struct ReadmeApplication {
 
 impl ReadmeApplication {
     pub fn new(
-        proxy: BlitzShellProxy,
-        event_queue: std::sync::mpsc::Receiver<BlitzShellEvent>,
+        proxy: ApaceShellProxy,
+        event_queue: std::sync::mpsc::Receiver<ApaceShellEvent>,
         raw_url: String,
         net_provider: Arc<Provider>,
         navigation_provider: Arc<dyn NavigationProvider>,
     ) -> Self {
         let handle = Handle::current();
         Self {
-            inner: BlitzApplication::new(proxy, event_queue),
+            inner: ApaceApplication::new(proxy, event_queue),
             handle,
             raw_url,
             net_provider,
@@ -67,7 +67,7 @@ impl ReadmeApplication {
         self.handle.spawn(async move {
             let url = url;
             let (base_url, contents, is_md, _file_path) = fetch(&url, net_provider).await;
-            proxy.send_event(BlitzShellEvent::NavigationLoad {
+            proxy.send_event(ApaceShellEvent::NavigationLoad {
                 url: base_url,
                 contents,
                 is_md,
@@ -83,7 +83,7 @@ impl ReadmeApplication {
             Box::new(move |result| {
                 let (url, bytes) = result.unwrap();
                 let contents = std::str::from_utf8(&bytes).unwrap().to_string();
-                proxy.send_event(BlitzShellEvent::NavigationLoad {
+                proxy.send_event(ApaceShellEvent::NavigationLoad {
                     url,
                     contents,
                     is_md: false,
@@ -190,18 +190,18 @@ impl ApplicationHandler for ReadmeApplication {
     fn proxy_wake_up(&mut self, event_loop: &dyn ActiveEventLoop) {
         while let Ok(event) = self.inner.event_queue.try_recv() {
             match event {
-                BlitzShellEvent::Embedder(event) => {
+                ApaceShellEvent::Embedder(event) => {
                     if let Some(_event) = event.downcast_ref::<ReadmeEvent>() {
                         self.reload_document(true);
                     }
                 }
-                BlitzShellEvent::Navigate(options) => {
+                ApaceShellEvent::Navigate(options) => {
                     let old_url = std::mem::replace(&mut self.raw_url, options.url.to_string());
                     self.url_history.push(old_url);
                     self.reload_document(false);
                     self.navigate(*options);
                 }
-                BlitzShellEvent::NavigationLoad {
+                ApaceShellEvent::NavigationLoad {
                     url,
                     contents,
                     retain_scroll_position,
@@ -209,7 +209,7 @@ impl ApplicationHandler for ReadmeApplication {
                 } => {
                     self.load_document(contents, retain_scroll_position, url, is_md);
                 }
-                event => self.inner.handle_blitz_shell_event(event_loop, event),
+                event => self.inner.handle_apace_shell_event(event_loop, event),
             }
         }
     }

@@ -1,13 +1,13 @@
 use slotmap::{DefaultKey, Key, KeyData, SlotMap};
 use std::cell::RefCell;
 use std::rc::Rc;
-use winit::{event::WindowEvent, event_loop::ActiveEventLoop, window::WindowId};
+use wingy::{event::WindowEvent, event_loop::ActiveEventLoop, window::WindowId};
 
 /// The unique identifier of a window event handler. This can be used to later remove the handler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WinitEventHandlerId(pub(crate) u64);
+pub struct WingyEventHandlerId(pub(crate) u64);
 
-impl WinitEventHandlerId {
+impl WingyEventHandlerId {
     /// Unregister this event handler from the window
     pub fn remove(&self) {
         let handlers: Rc<WindowEventHandlers> = dioxus_core::consume_context();
@@ -15,7 +15,7 @@ impl WinitEventHandlerId {
     }
 }
 
-struct WinitWindowEventHandlerInner {
+struct WingyWindowEventHandlerInner {
     window_id: WindowId,
 
     #[allow(clippy::type_complexity)]
@@ -24,7 +24,7 @@ struct WinitWindowEventHandlerInner {
 
 #[derive(Default)]
 pub(crate) struct WindowEventHandlers {
-    handlers: RefCell<SlotMap<DefaultKey, WinitWindowEventHandlerInner>>,
+    handlers: RefCell<SlotMap<DefaultKey, WingyWindowEventHandlerInner>>,
 }
 
 impl WindowEventHandlers {
@@ -32,18 +32,18 @@ impl WindowEventHandlers {
         &self,
         window_id: WindowId,
         handler: impl FnMut(&WindowEvent, &dyn ActiveEventLoop) + 'static,
-    ) -> WinitEventHandlerId {
+    ) -> WingyEventHandlerId {
         let key = self
             .handlers
             .borrow_mut()
-            .insert(WinitWindowEventHandlerInner {
+            .insert(WingyWindowEventHandlerInner {
                 window_id,
                 handler: Box::new(handler),
             });
-        WinitEventHandlerId(key.data().as_ffi())
+        WingyEventHandlerId(key.data().as_ffi())
     }
 
-    pub(crate) fn remove(&self, id: WinitEventHandlerId) {
+    pub(crate) fn remove(&self, id: WingyEventHandlerId) {
         let key = DefaultKey::from(KeyData::from_ffi(id.0));
         self.handlers.borrow_mut().remove(key);
     }

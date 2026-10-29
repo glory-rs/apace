@@ -1,6 +1,6 @@
-use blitz_dom::DocumentConfig;
-use blitz_html::HtmlDocument;
-use blitz_shell::{create_default_event_loop, BlitzApplication, BlitzShellProxy, WindowConfig};
+use apace_dom::DocumentConfig;
+use apace_html::HtmlDocument;
+use apace_shell::{create_default_event_loop, ApaceApplication, ApaceShellProxy, WindowConfig};
 
 use crate::{limits, DemoWidget, FEATURES, STYLES};
 
@@ -32,7 +32,7 @@ pub fn launch_html() {
 
     let renderer = create_renderer();
 
-    // Parse the HTML into a Blitz document
+    // Parse the HTML into a Apace document
     let html = HTML.replace("{{STYLES_PLACEHOLDER}}", STYLES);
     let mut doc = HtmlDocument::from_html(&html, DocumentConfig::default());
 
@@ -40,10 +40,10 @@ pub fn launch_html() {
     let canvas_node_id = doc.query_selector("#demo-canvas").unwrap().unwrap();
     doc.mutate().set_custom_widget(canvas_node_id, demo_widget);
 
-    // Create the Winit application and window
+    // Create the Wingy application and window
     let event_loop = create_default_event_loop();
-    let (proxy, reciever) = BlitzShellProxy::new(event_loop.create_proxy());
-    let mut application = BlitzApplication::new(proxy, reciever);
+    let (proxy, reciever) = ApaceShellProxy::new(event_loop.create_proxy());
+    let mut application = ApaceApplication::new(proxy, reciever);
     let window = WindowConfig::new(Box::new(doc), renderer);
     application.add_window(window);
 
@@ -69,7 +69,7 @@ static HTML: &str = r#"
                 <h2>Underlay</h2>
                 <p>This underlay demonstrates that the custom WGPU content can be rendered above layers and blended with the content underneath</p>
             </div>
-            <header><h1>Blitz WGPU Demo</h1></header>
+            <header><h1>Apace WGPU Demo</h1></header>
             <div id="canvas-container">
                 <object id="demo-canvas" />
             </div>

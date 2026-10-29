@@ -1,6 +1,6 @@
 //! Drive the renderer from Dioxus, with a transparent, decoration-less,
 //! content-sized, draggable window.
-use blitz_traits::shell::ShellProvider;
+use apace_traits::shell::ShellProvider;
 use dioxus_native::prelude::*;
 use dioxus_native::{Color, CompositeAlphaMode, Config, LogicalSize, WindowAttributes, use_window};
 use std::any::Any;
@@ -12,7 +12,7 @@ const WINDOW_HEIGHT: f64 = 300.0;
 
 /// Launch the app with a transparent window.
 pub fn launch() {
-    // 1. Tell winit to create a window that is transparent, has no titlebar /
+    // 1. Tell wingy to create a window that is transparent, has no titlebar /
     //    decorations, and is sized to fit the content.
     let window_attributes = WindowAttributes::default()
         .with_title("Dioxus Native - Transparent Window")

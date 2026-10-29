@@ -255,9 +255,9 @@ mod tests {
 
     #[test]
     fn script_location_uses_wrapper_url_and_variant() {
-        let mut doc = blitz_vibey_script::ScriptDocument::from_html(
+        let mut doc = apace_vibey_script::ScriptDocument::from_html(
             "",
-            blitz_dom::DocumentConfig {
+            apace_dom::DocumentConfig {
                 base_url: Some(format!(
                     "http://dummy.local/{}",
                     test_url("dom/test.any.js", "?a=1&b=2#part")
@@ -267,7 +267,7 @@ mod tests {
         )
         .without_timer_thread();
         doc.eval(
-            "__blitz_send_message([location.pathname, location.search, location.hash].join('|'));",
+            "__apace_send_message([location.pathname, location.search, location.hash].join('|'));",
         );
         assert!(doc.take_js_errors().is_empty());
         assert_eq!(doc.take_messages(), ["/dom/test.any.html|?a=1&b=2|#part"]);
