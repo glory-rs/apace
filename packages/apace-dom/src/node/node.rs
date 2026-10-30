@@ -61,6 +61,8 @@ bitflags! {
         /// A document-owned viewport layout/paint root. DOM and style ancestry stay intact.
         const IS_TOP_LAYER = 0b00001000;
         const CONTAIN_TOP_LAYER_SCROLL = 0b00010000;
+        /// Whether the node is an inline box whose in-flow content is block-level only
+        const IS_INLINE_WITH_ONLY_BLOCK_CHILDREN = 0b00100000;
     }
 }
 
@@ -87,6 +89,7 @@ impl NodeFlags {
     pub fn reset_construction_flags(&mut self) {
         self.remove(Self::IS_INLINE_ROOT);
         self.remove(Self::IS_TABLE_ROOT);
+        self.remove(Self::IS_INLINE_WITH_ONLY_BLOCK_CHILDREN);
     }
 }
 
@@ -530,6 +533,14 @@ impl Node {
                 }
             }
         }
+    }
+
+    /// Whether box-tree construction found this to be an inline box with block-level in-flow content only.
+    /// It is laid out as a block box, so its own background and borders must not be painted
+    /// over that content. Inline text or inline children keep the painting.
+    pub fn is_inline_with_only_block_children(&self) -> bool {
+        self.flags
+            .contains(NodeFlags::IS_INLINE_WITH_ONLY_BLOCK_CHILDREN)
     }
 
     pub fn is_whitespace_node(&self) -> bool {
@@ -1399,7 +1410,9 @@ impl Node {
             return true;
         }
 
-        // TODO: mix-blend-mode
+        if style.get_effects().mix_blend_mode != style::computed_values::mix_blend_mode::T::Normal {
+            return true;
+        }
         // TODO: contain
 
         false
@@ -1499,7 +1512,11 @@ impl Node {
 
         let layout = self.final_layout();
         let overflow_rect = layout.scrollable_overflow_rect;
-        let is_rtl = takia::CoreStyle::direction(&self.layout_style()).is_rtl();
+        // Not `layout_style()`: hit testing also reaches elements that have no computed styles
+        // yet (a pointer event before the first resolve). Those count as left-to-right.
+        let is_rtl = self.primary_styles().is_some_and(|style| {
+            style.clone_direction() == style::computed_values::direction::T::Rtl
+        });
         let (gutter_left, gutter_top) = (is_rtl, false);
         #[cfg(feature = "writing-mode")]
         let (gutter_left, gutter_top) = {

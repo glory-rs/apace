@@ -11,13 +11,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::kurbo_css::CssBox;
+use crate::blend::convert_blend_mode;
 use crate::color::{Color, ToColorColor};
 use crate::debug_overlay::render_debug_overlay;
 use crate::filters::convert_filters;
 use crate::kurbo_css::NonUniformRoundedRectRadii;
 use crate::layers::LayerManager;
 use crate::sizing::compute_object_fit;
-use crate::text::DrawTextContext;
+use crate::text::{DrawTextContext, TextPaintOptions};
 use crate::{CustomWidgetSceneMap, SELECTION_COLOR};
 use anyrender::{PaintScene, Scene};
 use apace_dom::node::{
@@ -42,9 +43,18 @@ use style::{
 };
 
 use kurbo::{self, Affine, Insets, Point, Rect, Shape, Size, Stroke, Vec2};
-use peniko::{self, Fill, ImageData, ImageSampler};
+use peniko::{self, BlendMode, Fill, ImageData, ImageSampler};
+use style::computed_values::isolation::T as Isolation;
 use style::values::generics::color::GenericColor;
 use takia::Layout;
+
+/// An opacity just below 1.0, used to force the renderer to allocate an isolated
+/// buffer for mask and text-clip isolation layers. Renderers (e.g. vello_cpu) may optimize
+/// layers with `Mix::Normal`/`Compose::SrcOver` and an opacity of exactly 1.0 into
+/// plain non-isolated clip layers, in which case the `Compose::DestIn` mask
+/// compositing would erase the backdrop behind the element rather than just the
+/// element's own content.
+pub(super) const ALMOST_OPAQUE: f32 = 1.0 - f32::EPSILON;
 
 /// A view of the track positions reported by takia in physical (left-to-right /
 /// top-to-bottom) order. Takia reports tracks in logical order, which for RTL grid
@@ -299,6 +309,114 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
         }
     }
 
+    fn node_transform(&self, node: &Node, parent: Affine) -> Affine {
+        let location = node.final_layout().location;
+        parent
+            * Affine::translate(Vec2::new(location.x as f64, location.y as f64) * self.scale)
+            * node.transform().as_deref().copied().unwrap_or_default()
+    }
+
+    fn scrolled_transform(&self, node: &Node, transform: Affine) -> Affine {
+        transform.then_translate(Vec2 {
+            x: -node.scroll_offset().x * self.scale,
+            y: -node.scroll_offset().y * self.scale,
+        })
+    }
+
+    fn should_clip_node(&self, node: &Node, styles: &ComputedValues) -> bool {
+        let box_style = styles.get_box();
+        let contain_paint = box_style.slow_clone_contain().contains(Contain::PAINT) && {
+            let display = styles.clone_display();
+            let is_internal_table_box_other_than_cell = display.outside()
+                == DisplayOutside::InternalTable
+                && display.inside() != DisplayInside::TableCell;
+            !display.is_inline_flow() && !is_internal_table_box_other_than_cell
+        };
+        let element = node.element_data();
+        self.root_element_id != Some(node.id)
+            && (element.and_then(|e| e.raster_image_data()).is_some()
+                || element.and_then(|e| e.sub_doc_data()).is_some()
+                || element.and_then(|e| e.text_input_data()).is_some()
+                || contain_paint
+                || !matches!(box_style.overflow_x, Overflow::Visible)
+                || !matches!(box_style.overflow_y, Overflow::Visible))
+    }
+
+    fn draw_text_mask(
+        &self,
+        scene: &mut impl PaintScene,
+        node_id: NodeId,
+        transform: Affine,
+        root: bool,
+    ) {
+        let node = &self.dom.as_ref().tree()[node_id];
+        if matches!(node.takia_display(), takia::Display::None) || (!root && node.is_out_of_flow())
+        {
+            return;
+        }
+        let Some(styles) = node.primary_styles() else {
+            return;
+        };
+        if styles.get_inherited_box().visibility != StyloVisibility::Visible
+            || node.element_data().is_none()
+        {
+            return;
+        }
+        let cx = self.element_cx(node, *node.final_layout(), transform, None);
+        let clip = if cx.text_input.is_some() {
+            cx.frame.content_box_path()
+        } else {
+            cx.frame.padding_box_path()
+        };
+        let pushed = self.layer_manager.maybe_push_layer(
+            scene,
+            self.should_clip_node(node, &styles),
+            BlendMode::default(),
+            1.0,
+            transform,
+            &clip,
+            None,
+            None,
+        );
+        let transform = self.scrolled_transform(node, transform);
+        if node.flags.is_inline_root() {
+            if let Some(layout) = &cx.element.inline_layout_data {
+                let layout_box = node.final_layout();
+                let x = (layout_box.padding.left + layout_box.border.left) as f64
+                    - node.scroll_offset().x;
+                let y = (layout_box.padding.top + layout_box.border.top) as f64
+                    - node.scroll_offset().y
+                    + layout.block_offset as f64;
+                let text_transform =
+                    transform * Affine::translate((x * self.scale, y * self.scale));
+                crate::text::stroke_text(
+                    scene,
+                    layout.layout.lines(),
+                    self.dom,
+                    text_transform,
+                    TextPaintOptions {
+                        scale: self.scale,
+                        brush_override: Some(Color::BLACK),
+                    },
+                    node.id,
+                    &mut self.draw_text_context.borrow_mut(),
+                );
+            }
+        }
+        if let Some(children) = &*node.layout_children.borrow() {
+            for &child_id in children {
+                let child = &self.dom.as_ref().tree()[child_id];
+                self.draw_text_mask(
+                    scene,
+                    child_id,
+                    self.node_transform(child, transform),
+                    false,
+                );
+            }
+        }
+        self.layer_manager.maybe_pop_layer(scene, pushed);
+    }
+
     /// Renders a node, but is guaranteed that the node is an element
     /// This is because the font_size is calculated from layout resolution and all text is rendered directly here, instead
     /// of a separate text stroking phase.
@@ -345,45 +463,11 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
         }
         let has_opacity = opacity < 1.0;
 
-        // TODO: account for overflow_x vs overflow_y
-        let overflow_x = styles.get_box().overflow_x;
-        let overflow_y = styles.get_box().overflow_y;
-        // `contain: paint` (and stronger values like `strict`/`content`) clips the element's
-        // contents to its padding box. Paint containment does not apply to non-atomic inlines
-        // or internal table boxes other than table-cell.
-        let contain_paint = styles
-            .get_box()
-            .slow_clone_contain()
-            .contains(Contain::PAINT)
-            && {
-                let display = styles.clone_display();
-                let is_internal_table_box_other_than_cell = display.outside()
-                    == DisplayOutside::InternalTable
-                    && display.inside() != DisplayInside::TableCell;
-                !display.is_inline_flow() && !is_internal_table_box_other_than_cell
-            };
-        let is_image = node
-            .element_data()
-            .and_then(|e| e.raster_image_data())
-            .is_some();
-        let is_sub_doc = node
-            .element_data()
-            .and_then(|el| el.sub_doc_data())
-            .is_some();
+        let should_clip = self.should_clip_node(node, &styles);
         let is_text_input = node
             .element_data()
             .and_then(|el| el.text_input_data())
             .is_some();
-        // The root element's overflow is propagated to the viewport (which is clipped by the
-        // window/surface bounds), so the root element must not clip its own overflow.
-        let is_root_element = self.root_element_id == Some(node_id);
-        let should_clip = !is_root_element
-            && (is_image
-                || is_sub_doc
-                || is_text_input
-                || contain_paint
-                || !matches!(overflow_x, Overflow::Visible)
-                || !matches!(overflow_y, Overflow::Visible));
 
         // Apply padding/border offset to inline root
         let takia::Layout {
@@ -408,10 +492,7 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
 
         // Don't render things that are out of view
         let overflow = *node.scrollable_overflow();
-        let transform = parent_style_transform
-            * Affine::translate(box_position)
-            * node.transform().as_deref().copied().unwrap_or_default();
-
+        let transform = self.node_transform(node, parent_style_transform);
         let screen_transform = Affine::translate(Vec2 {
             x: -self.initial_x,
             y: -self.initial_y,
@@ -494,6 +575,7 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
         let css_clip_layer_pushed = self.layer_manager.maybe_push_layer(
             scene,
             css_clip_rect.is_some(),
+            BlendMode::default(),
             1.0,
             cx.transform,
             &css_clip_rect.unwrap_or(Rect::ZERO),
@@ -501,13 +583,38 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
             None,
         );
 
+        // Use the viewport in scene coordinates so outlines, shadows and overflowing
+        // descendants are not clipped to the element's border box.
+        let blend = convert_blend_mode(effects.mix_blend_mode);
+        let isolate = styles.get_box().isolation == Isolation::Isolate;
+        let blend_layer_pushed = self.layer_manager.maybe_push_layer(
+            scene,
+            isolate || blend != BlendMode::default(),
+            blend,
+            if isolate { 1.0 - f32::EPSILON } else { 1.0 },
+            Affine::IDENTITY,
+            &Rect::new(
+                self.initial_x,
+                self.initial_y,
+                self.initial_x + self.width as f64,
+                self.initial_y + self.height as f64,
+            ),
+            None,
+            None,
+        );
+
+        let paints_own_box = !node.is_inline_with_only_block_children();
+
         cx.draw_outline(scene);
-        cx.draw_outset_box_shadow(scene);
+        if paints_own_box {
+            cx.draw_outset_box_shadow(scene);
+        }
 
         // clip-path clip ayer
         self.layer_manager.maybe_with_layer(
             scene,
             has_clip_path,
+            BlendMode::default(),
             1.0,
             cx.transform,
             &clip_path_for_layer,
@@ -548,17 +655,22 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
                 self.layer_manager.maybe_with_layer(
                     scene,
                     has_opacity || filter.is_some() || backdrop_filter.is_some(),
+                    BlendMode::default(),
                     opacity,
                     cx.transform,
                     &effect_layer_clip,
                     filter,
                     backdrop_filter,
                     |scene| {
-                        cx.draw_background(scene);
-                        cx.draw_inset_box_shadow(scene);
+                        if paints_own_box {
+                            cx.draw_background(scene);
+                            cx.draw_inset_box_shadow(scene);
+                        }
                         cx.draw_table_row_backgrounds(scene);
                         cx.draw_table_borders(scene);
-                        cx.draw_border(scene);
+                        if paints_own_box {
+                            cx.draw_border(scene);
+                        }
                         cx.stroke_devtools(scene);
 
                         // TODO: allow layers with opacity to be unclipped (overflow: visible)
@@ -572,6 +684,7 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
                         self.layer_manager.maybe_with_layer(
                             scene,
                             should_clip,
+                            BlendMode::default(),
                             1.0, // opacity
                             cx.transform,
                             clip,
@@ -584,10 +697,7 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
                                     y: content_position.y - node.scroll_offset().y,
                                 };
 
-                                cx.transform = cx.transform.then_translate(Vec2 {
-                                    x: -node.scroll_offset().x * self.scale,
-                                    y: -node.scroll_offset().y * self.scale,
-                                });
+                                cx.transform = self.scrolled_transform(node, cx.transform);
                                 cx.draw_image(scene);
                                 #[cfg(feature = "svg")]
                                 cx.draw_svg(scene);
@@ -618,6 +728,8 @@ impl<'dom, 'a> ApaceDomPainter<'dom, 'a> {
             },
         );
 
+        self.layer_manager
+            .maybe_pop_layer(scene, blend_layer_pushed);
         self.layer_manager
             .maybe_pop_layer(scene, css_clip_layer_pushed);
     }
@@ -919,8 +1031,11 @@ impl ElementCx<'_, '_> {
                 text_layout.layout.lines(),
                 self.context.dom,
                 transform,
-                self.scale,
-                crate::text::TextPaint::normal(self.node.id),
+                TextPaintOptions {
+                    scale: self.scale,
+                    brush_override: None,
+                },
+                self.node.id,
                 &mut draw_text_context,
             );
         }
@@ -952,8 +1067,11 @@ impl ElementCx<'_, '_> {
                     hint.lines(),
                     self.context.dom,
                     base * Affine::translate((0.0, y * self.scale)),
-                    self.scale,
-                    crate::text::TextPaint::placeholder(self.node.id),
+                    TextPaintOptions {
+                        scale: self.scale,
+                        brush_override: Some(Color::from_rgba8(117, 117, 117, 255)),
+                    },
+                    self.node.id,
                     &mut self.context.draw_text_context.borrow_mut(),
                 );
                 scene.pop_layer();
@@ -1014,8 +1132,11 @@ impl ElementCx<'_, '_> {
                 input_data.display_editor().try_layout().unwrap().lines(),
                 self.context.dom,
                 transform,
-                self.scale,
-                crate::text::TextPaint::normal(self.node.id),
+                TextPaintOptions {
+                    scale: self.scale,
+                    brush_override: None,
+                },
+                self.node.id,
                 &mut draw_text_context,
             );
         }
@@ -1069,8 +1190,11 @@ impl ElementCx<'_, '_> {
                 layout.lines(),
                 self.context.dom,
                 transform,
-                self.scale,
-                crate::text::TextPaint::normal(self.node.id),
+                TextPaintOptions {
+                    scale: self.scale,
+                    brush_override: None,
+                },
+                self.node.id,
                 &mut draw_text_context,
             );
         }
@@ -1221,6 +1345,7 @@ impl ElementCx<'_, '_> {
         self.context.layer_manager.maybe_with_layer(
             scene,
             overflows,
+            BlendMode::default(),
             1.0,
             self.transform,
             &self.frame.content_box_path(),

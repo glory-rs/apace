@@ -7997,6 +7997,7 @@ checksum = "c0e973b34477b7823833469eb0f5a3a60370fef7a453e02d751b59180d0a5a05"
 [[package]]
 name = "takia"
 version = "0.15.0"
+source = "git+https://github.com/glory-rs/takia?rev=c79a14b54ea632462a15624acf9e7daf792bcd13#c79a14b54ea632462a15624acf9e7daf792bcd13"
 dependencies = [
  "serde",
  "slotmap",
@@ -10061,6 +10062,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "wingy"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
@@ -10073,8 +10075,8 @@ dependencies = [
  "wingy-android",
  "wingy-appkit",
  "wingy-common",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
  "wingy-orbital",
  "wingy-uikit",
  "wingy-wayland",
@@ -10086,6 +10088,7 @@ dependencies = [
 [[package]]
 name = "wingy-android"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "android-activity",
  "bitflags 2.13.2",
@@ -10093,13 +10096,14 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "tracing",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-appkit"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
@@ -10114,13 +10118,14 @@ dependencies = [
  "smol_str",
  "tracing",
  "wingy-common",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-common"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "block2 0.6.2",
  "memmap2 0.9.11",
@@ -10129,23 +10134,10 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "smol_str",
  "tracing",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
  "x11-dl",
  "xkbcommon-dl",
-]
-
-[[package]]
-name = "wingy-core"
-version = "0.31.0"
-dependencies = [
- "bitflags 2.13.2",
- "cursor-icon",
- "keyboard-types",
- "raw-window-handle",
- "smol_str",
- "web-time",
- "wingy-dpi 0.1.2",
 ]
 
 [[package]]
@@ -10164,8 +10156,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "wingy-dpi"
-version = "0.1.2"
+name = "wingy-core"
+version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
+dependencies = [
+ "bitflags 2.13.2",
+ "cursor-icon",
+ "keyboard-types",
+ "raw-window-handle",
+ "smol_str",
+ "web-time",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+]
 
 [[package]]
 name = "wingy-dpi"
@@ -10174,8 +10176,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b73b8b020bc6d444275f260f3af541470f1bc7b5ba9e712d9fd49aa3aa42dff"
 
 [[package]]
+name = "wingy-dpi"
+version = "0.1.2"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
+
+[[package]]
 name = "wingy-orbital"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "libredox",
@@ -10184,13 +10192,14 @@ dependencies = [
  "redox_event",
  "smol_str",
  "tracing",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-uikit"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
@@ -10203,13 +10212,14 @@ dependencies = [
  "smol_str",
  "tracing",
  "wingy-common",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-wayland"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "calloop",
@@ -10229,13 +10239,14 @@ dependencies = [
  "wayland-protocols",
  "wayland-protocols-plasma",
  "wingy-common",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-web"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.2",
@@ -10250,13 +10261,14 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-win32"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
@@ -10267,13 +10279,14 @@ dependencies = [
  "unicode-segmentation",
  "windows-sys 0.61.2",
  "wingy-common",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
 ]
 
 [[package]]
 name = "wingy-x11"
 version = "0.31.0"
+source = "git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03#b80608744193df808d71dd9eaf9ff02627351f03"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -10286,8 +10299,8 @@ dependencies = [
  "smol_str",
  "tracing",
  "wingy-common",
- "wingy-core 0.31.0",
- "wingy-dpi 0.1.2",
+ "wingy-core 0.31.0 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
+ "wingy-dpi 0.1.2 (git+https://github.com/glory-rs/wingy?rev=b80608744193df808d71dd9eaf9ff02627351f03)",
  "x11-dl",
  "x11rb 0.14.0",
  "xkbcommon-dl",

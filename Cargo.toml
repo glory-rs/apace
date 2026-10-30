@@ -57,7 +57,7 @@ browser-persistence = { path = "./apps/browser/persistence" }
 apace-test-harness = { path = "./packages/apace-test-harness" }
 
 # Servo dependencies
-# servo/stylo main (633f43ad) plus a fix for building on wasm32-unknown-unknown (disables rand's getrandom dependency)
+# nicoburns/stylo: -webkit-text-fill-color (servo/stylo#504)
 style = { version = "0.22.0", git = "https://github.com/nicoburns/stylo", rev = "78734bf554bb40af9dc11c0eedbe724f6055697c", package = "stylo" }
 style_traits = { version = "0.22.0", git = "https://github.com/nicoburns/stylo", rev = "78734bf554bb40af9dc11c0eedbe724f6055697c", package = "stylo_traits" }
 style_atoms = { version = "0.22.0", git = "https://github.com/nicoburns/stylo", rev = "78734bf554bb40af9dc11c0eedbe724f6055697c", package = "stylo_atoms" }
@@ -98,7 +98,7 @@ dioxus-cli-config = { version = "0.8.0-alpha.3" }
 dioxus-core-macro = { version = "0.8.0-alpha.3" }
 
 # Takia + Parley + Fontations
-takia = { version = "=0.15.0", path = "../takia", default-features = false, features = [
+takia = { version = "=0.15.0", git = "https://github.com/glory-rs/takia", rev = "c79a14b54ea632462a15624acf9e7daf792bcd13", default-features = false, features = [
     "std",
     "flexbox",
     "flexbox_balance",
@@ -135,7 +135,7 @@ svgtypes = "0.16.1" # Should match usvg's version
 # Windowing & Input
 raw-window-handle = "0.6.0"
 arboard = { version = "3.4.1", default-features = false }
-wingy = { version = "=0.31.0", path = "../wingy/wingy" }
+wingy = { version = "=0.31.0", git = "https://github.com/glory-rs/wingy", rev = "b80608744193df808d71dd9eaf9ff02627351f03" }
 accesskit = "0.25"
 rfd = { version = "0.17.1", default-features = false }
 keyboard-types = "0.8"

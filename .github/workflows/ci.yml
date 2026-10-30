@@ -21,6 +21,8 @@ jobs:
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
+      # Boa's executable documentation needs more than the default Windows main-thread stack.
+      RUSTDOCFLAGS: '-C link-arg=/STACK:8388608'
       CARGO_BUILD_JOBS: '2'
     defaults:
       run:
@@ -38,16 +40,22 @@ jobs:
           rustup toolchain install 1.98.0 --profile minimal --component rustfmt,clippy
           if ($LASTEXITCODE) { throw 'Toolchain installation failed' }
           rustup default 1.98.0
-      - name: Validate source and release plan
+      - name: Validate source
         run: |
           python -m unittest discover -s scripts -p test_release.py
           if ($LASTEXITCODE) { throw 'Release tooling tests failed' }
+          cargo fmt --all -- --check
+          if ($LASTEXITCODE) { throw 'Formatting failed' }
+      # Reviewed upstream development dependencies may use Git revisions. Keep
+      # the strict publication checks on release tags; release.py also enforces
+      # them again before it can upload anything.
+      - name: Validate release plan and archive
+        if: startsWith(github.ref, 'refs/tags/apace-v')
+        run: |
           python scripts/release.py
           if ($LASTEXITCODE) { throw 'Release plan failed' }
           python scripts/release.py --check-package apace-traits
           if ($LASTEXITCODE) { throw 'Archive contents failed' }
-          cargo fmt --all -- --check
-          if ($LASTEXITCODE) { throw 'Formatting failed' }
       - name: Tests and compilation
         run: |
           cargo test --locked -p apace-dom --no-default-features --features system-fonts,complex-scripts --lib
@@ -60,3 +68,5 @@ jobs:
           if ($LASTEXITCODE) { throw 'Validation failed' }
           cargo check --locked -p apace --all-targets
           if ($LASTEXITCODE) { throw 'Validation failed' }
+          cargo test --locked --workspace
+          if ($LASTEXITCODE) { throw 'Workspace regression failed' }

@@ -1,9 +1,9 @@
 # Glory maintenance branch
 
-Upstream: DioxusLabs/apace, commit `92b11f1bd8ab7975411328b0406a95a09445b4e7`
-(0.3.0-beta.4). Package names and the upstream workspace structure are retained.
-Takia is pinned to the corresponding glory-rs/takia maintenance commit in the
-workspace manifest. Glory consumes this repository by immutable Git revision.
+Upstream: [DioxusLabs/blitz](https://github.com/DioxusLabs/blitz), integrated
+through `e5929f9e` on 2026-10-30. The Apace namespace and maintained patches are
+retained. `Cargo.toml` pins the coordinated Takia and Wingy maintenance commits;
+see `UPSTREAM.md` for integration batches, validation and publication limits.
 
 The maintenance patch carries bounded resource admission/cache/completions,
 cancellation and document close, stylesheet snapshot correctness, incremental

@@ -18,8 +18,8 @@ impl DocumentSender {
             pool: Arc::new(RequestPool::default()),
         }
     }
-    pub fn send(&self, event: DocumentEvent) -> Result<(), mpsc::SendError<DocumentEvent>> {
-        self.tx.send(event)
+    pub fn send(&self, event: DocumentEvent) -> Result<(), mpsc::SendError<()>> {
+        self.tx.send(event).map_err(|_| mpsc::SendError(()))
     }
 }
 #[derive(Default)]

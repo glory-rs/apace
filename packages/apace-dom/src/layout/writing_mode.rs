@@ -243,6 +243,11 @@ impl LayoutPassState<'_> {
         rounded_parent_pos: Point<f32>,
     ) {
         let node = &self.doc.nodes[dom_node_id(node_id)];
+        // Hidden subtrees can retain their box roster while Stylo deliberately
+        // leaves descendants unstyled. They have no box to physicalise.
+        if node.primary_styles().is_none() {
+            return;
+        }
         let overflow = node.layout_style().overflow();
         let is_scroll_container =
             overflow.x.is_scroll_container() || overflow.y.is_scroll_container();
