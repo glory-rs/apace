@@ -999,7 +999,7 @@ impl BaseDocument {
     ///   bits. Hover is then re-resolved against the pointer position by
     ///   [`Self::refresh_hover`] at the end of the next resolve pass (the
     ///   analogue of WebKit's "fake mouse move"), which corrects the bridge
-    ///   value — including cases where the removed node overflowed its
+    ///   value â€” including cases where the removed node overflowed its
     ///   ancestor's box, so the ancestor was never truly under the pointer.
     /// - Focus resets to the body (encoded as `None`), running blur
     ///   side-effects (clearing focus element state and disabling IME for
@@ -1865,6 +1865,7 @@ impl BaseDocument {
             });
             self.focus_node_id = None;
             self.update_focus_within_paths(old_path, Vec::new());
+            self.shell_provider.request_redraw();
         }
     }
 
@@ -1876,6 +1877,9 @@ impl BaseDocument {
             return false;
         };
         if Some(focus_node_id) == self.focus_node_id {
+            return false;
+        }
+        if !self.nodes[focus_node_id].flags.is_in_document() {
             return false;
         }
         let old_path = self.maybe_node_element_ancestors(self.focus_node_id);
@@ -1903,6 +1907,7 @@ impl BaseDocument {
         self.focus_node_id = Some(focus_node_id);
         self.update_focus_within_paths(old_path, new_path);
 
+        self.shell_provider.request_redraw();
         true
     }
 
@@ -2257,7 +2262,7 @@ impl BaseDocument {
 
     /// Returns whether incremental layout is currently enabled for this document.
     ///
-    /// Both modes run the same style → damage → box construction → layout
+    /// Both modes run the same style â†’ damage â†’ box construction â†’ layout
     /// pipeline. In incremental mode only nodes carrying `RestyleDamage` (from
     /// mutations or restyles) are reconstructed and have their layout caches
     /// cleared; in non-incremental mode every node is marked damaged at the
@@ -2426,11 +2431,15 @@ impl BaseDocument {
         // Prefer the precise hit node: `cursor` and `user-select` may be set on
         // a pseudo-element or resolved on an anonymous box, and text hits carry
         // is_text via the hit node. Fall back to the canonical hover node if
-        // the hit node has been removed (it is transient across resolves).
-        let node_id = self
+        // the hit node has been removed (it is transient across resolves), and
+        // to the default cursor if the pointer is over no box.
+        let Some(node_id) = self
             .hover_hit_node_id
             .filter(|&id| self.nodes.contains_key(id))
-            .or(self.get_hover_node_id())?;
+            .or(self.get_hover_node_id())
+        else {
+            return Some(CursorIcon::Default);
+        };
         let node = &self.nodes[node_id];
 
         if let Some(subdoc) = node.subdoc().map(|doc| doc.inner())
@@ -3167,7 +3176,7 @@ mod hover_state_tests {
     /// Regression test: hovering bare text wrapped in an anonymous block must
     /// report a text cursor. The hit node for such text is the anonymous
     /// inline root itself, while the *stored* hover target is canonicalized to
-    /// the containing element — the cursor must be derived from the precise
+    /// the containing element â€” the cursor must be derived from the precise
     /// hit node, not the canonical target.
     #[test]
     fn hovering_text_in_anonymous_block_reports_text_cursor() {
@@ -3205,6 +3214,16 @@ mod hover_state_tests {
         doc.set_hover_to(250.0, 8.0);
         assert!(!doc.hover_node_is_text);
         assert_eq!(doc.get_hover_node_id(), Some(container));
+        assert_eq!(doc.get_cursor(), Some(CursorIcon::Default));
+    }
+
+    /// Hovering below the content hits no box: default cursor (`None` would hide it).
+    #[test]
+    fn hovering_below_content_reports_default_cursor() {
+        let (mut doc, _) = make_doc();
+
+        doc.set_hover_to(5.0, 250.0);
+        assert_eq!(doc.get_hover_node_id(), None);
         assert_eq!(doc.get_cursor(), Some(CursorIcon::Default));
     }
 }
@@ -3814,11 +3833,11 @@ mod font_face_override_tests {
     /// so `load_resource` registered fonts with `info_override = None` and
     /// parley fell back to the TTF's internal `name` table. After the fix,
     /// `Resource::Font` carries `FontFaceOverrides` and `load_resource`
-    /// builds a `FontInfoOverride` from them — meaning a CSS-declared
+    /// builds a `FontInfoOverride` from them â€” meaning a CSS-declared
     /// `font-family` alias wins over the file's own metadata.
     ///
     /// We drive `load_resource` directly with a fabricated response rather
-    /// than go through HTML parsing → `fetch_font_face`, because the
+    /// than go through HTML parsing â†’ `fetch_font_face`, because the
     /// downstream HTML parser lives in `apace-html` (would be a circular
     /// crate dependency). The mapping from `@font-face` descriptors into
     /// `FontFaceOverrides` is covered by the unit tests in `net.rs`; this
@@ -3840,7 +3859,7 @@ mod font_face_override_tests {
 
         // Drive `load_resource` with a `Resource::Font` whose overrides
         // assert the CSS-side family name. We use the bullet font as a
-        // valid font payload — its internal `name` table is irrelevant to
+        // valid font payload â€” its internal `name` table is irrelevant to
         // the assertion; what matters is whether the override wins.
         let response = ResourceLoadResponse {
             ticket: None,

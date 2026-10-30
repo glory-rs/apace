@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use apace_dom::{BaseDocument, DocumentConfig};
+use apace_dom::{BaseDocument, DocumentConfig, StyleThreading};
 use apace_html::{HtmlDocument, HtmlProvider};
 use apace_traits::net::{Request, Url};
 use dioxus_native::{NodeHandle, SubDocumentAttr, prelude::*};
@@ -200,6 +200,7 @@ pub fn Toolbar(
             html_parser_provider: Some(Arc::new(HtmlProvider)),
             font_ctx: Some(tab.loader_rc().font_ctx.clone()),
             media_type: None,
+            style_threading: StyleThreading::Parallel,
             ..Default::default()
         };
         let mut document = HtmlDocument::from_html(view_source_html, config).into_inner();

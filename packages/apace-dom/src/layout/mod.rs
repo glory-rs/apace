@@ -600,14 +600,16 @@ impl LayoutPassState<'_> {
                     }
 
                     // HACK: Cap scrollable overflow at node size to prevent scrolling
-                    output.scrollable_overflow_rect.left = 0.0;
-                    output.scrollable_overflow_rect.top = 0.0;
-                    output.scrollable_overflow_rect.right =
-                        output.scrollable_overflow_rect.right.min(output.size.width);
-                    output.scrollable_overflow_rect.bottom = output
-                        .scrollable_overflow_rect
-                        .bottom
-                        .min(output.size.height);
+                    let overflow = output.scrollable_overflow_rect;
+                    output.scrollable_overflow_rect = takia::ScrollableOverflow::new(
+                        takia::Rect {
+                            left: 0.0,
+                            top: 0.0,
+                            right: overflow.right().min(output.size.width),
+                            bottom: overflow.bottom().min(output.size.height),
+                        },
+                        output.scrollable_overflow_rect.is_reversed(),
+                    );
 
                     return output;
                 }
@@ -886,7 +888,9 @@ impl RoundTree for LayoutPassState<'_> {
     }
 
     fn is_out_of_flow(&self, node_id: NodeId) -> bool {
-        self.node_from_id(node_id).is_out_of_flow()
+        self.node_from_id(node_id)
+            .out_of_flow
+            .load(core::sync::atomic::Ordering::Relaxed)
     }
 
     fn hoisted_child_count(&self, node_id: NodeId) -> usize {

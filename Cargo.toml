@@ -17,7 +17,6 @@ members = [
     "apps/browser",
     "apps/browser/persistence",
     "apps/readme",
-    "apps/bump",
     "wpt/runner",
     "tests/apace-tests",
     "examples/counter",
@@ -98,7 +97,7 @@ dioxus-cli-config = { version = "0.7.3" }
 dioxus-core-macro = { version = "0.7.3" }
 
 # Takia + Parley + Fontations
-takia = { version = "=0.15.0", default-features = false, features = [
+takia = { version = "=0.15.0", path = "../takia", default-features = false, features = [
     "std",
     "flexbox",
     "flexbox_balance",
@@ -134,7 +133,7 @@ svgtypes = "0.16.1" # Should match usvg's version
 
 # Windowing & Input
 raw-window-handle = "0.6.0"
-wingy = { version = "=0.31.0" }
+wingy = { version = "=0.31.0", path = "../wingy/wingy" }
 accesskit = "0.25"
 arboard = { version = "3.4.1", default-features = false }
 rfd = { version = "0.17.1", default-features = false }

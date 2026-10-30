@@ -417,6 +417,10 @@ impl DocumentMutator<'_> {
             element.id = Some(Atom::from(value))
         }
 
+        if *attr == local_name!("class") {
+            element.classes = crate::node::parse_classes(value);
+        }
+
         if *attr == local_name!("value") {
             if let Some(input_data) = element.text_input_data_mut() {
                 // Update text input value
@@ -558,6 +562,10 @@ impl DocumentMutator<'_> {
 
         if name.local == local_name!("id") {
             element.id = None;
+        }
+
+        if name.local == local_name!("class") {
+            element.classes.clear();
         }
 
         // As in `set_attribute`: taking one of these away can make the element
@@ -829,6 +837,7 @@ impl DocumentMutator<'_> {
         }
         let new_parent_is_in_document = self.doc.nodes[parent_id].flags.is_in_document();
         self.mutations_occurred |= new_parent_is_in_document && !child_ids.is_empty();
+
         // Detach the children from their old parents *before* inserting them into
         // the new parent (matching DOM `insertBefore` semantics). If a child is
         // being moved within the same parent then detaching it after insertion
@@ -945,7 +954,7 @@ impl DocumentMutator<'_> {
     }
 
     /// The nearest sibling of `anchor_id` (in the direction given by `offset`:
-    /// +1 = following, -1 = preceding) which is not in `excluded` — the spec's
+    /// +1 = following, -1 = preceding) which is not in `excluded` â€” the spec's
     /// "viable next/previous sibling" for ChildNode mutation methods
     fn viable_sibling(
         &self,

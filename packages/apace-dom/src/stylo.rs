@@ -26,6 +26,13 @@ use style::bloom::each_relevant_element_hash;
 use style::color::AbsoluteColor;
 use style::data::{ElementDataMut, ElementDataRef};
 use style::global_style_data::STYLE_THREAD_POOL;
+
+/// Serialises `Parallel` style traversals across documents. Stylo's per-worker
+/// caches (`StyleSharingCache`, `StyleBloom`) live in native thread-locals that
+/// a traversal borrows mutably for its whole duration, so two traversals in
+/// flight on the shared pool at once panic with `already mutably borrowed`
+/// (<https://github.com/DioxusLabs/blitz/issues/430>).
+static PARALLEL_TRAVERSAL_LOCK: Mutex<()> = Mutex::new(());
 use style::invalidation::element::restyle_hints::RestyleHint;
 use style::properties::ComputedValues;
 use style::properties::{Importance, PropertyDeclaration};
@@ -163,8 +170,13 @@ impl crate::document::BaseDocument {
             // Style the elements, resolving their data
             let mut traverser = RecalcStyle::new(context);
             // `Sequential` bypasses Stylo's global pool. See `StyleThreading`.
-            let pool_guard = matches!(self.style_threading, StyleThreading::Parallel)
-                .then(|| STYLE_THREAD_POOL.pool());
+            let parallel = matches!(self.style_threading, StyleThreading::Parallel);
+            let _traversal_lock = parallel.then(|| {
+                PARALLEL_TRAVERSAL_LOCK
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+            });
+            let pool_guard = parallel.then(|| STYLE_THREAD_POOL.pool());
             let rayon_pool = pool_guard.as_ref().and_then(|g| g.as_ref());
             style::driver::traverse_dom(&traverser, token, rayon_pool);
             nodes_needing_style_image_flush =
@@ -618,18 +630,11 @@ impl selectors::Element for ApaceNode<'_> {
         search_name: &<Self::Impl as selectors::SelectorImpl>::Identifier,
         case_sensitivity: selectors::attr::CaseSensitivity,
     ) -> bool {
-        let class_attr = self.data.attr(local_name!("class"));
-        if let Some(class_attr) = class_attr {
-            // split the class attribute
-            for pheme in class_attr.split_ascii_whitespace() {
-                let atom = Atom::from(pheme);
-                if case_sensitivity.eq_atom(&atom, search_name) {
-                    return true;
-                }
-            }
-        }
-
-        false
+        self.element_data().is_some_and(|data| {
+            data.classes
+                .iter()
+                .any(|class| case_sensitivity.eq_atom(class, search_name))
+        })
     }
 
     fn imported_part(
@@ -736,12 +741,9 @@ impl<'a> TElement for ApaceNode<'a> {
     where
         F: FnMut(&style::values::AtomIdent),
     {
-        let class_attr = self.data.attr(local_name!("class"));
-        if let Some(class_attr) = class_attr {
-            // split the class attribute
-            for pheme in class_attr.split_ascii_whitespace() {
-                let atom = Atom::from(pheme); // interns the string
-                callback(AtomIdent::cast(&atom));
+        if let Some(data) = self.element_data() {
+            for class in &data.classes {
+                callback(AtomIdent::cast(class));
             }
         }
     }
@@ -752,7 +754,7 @@ impl<'a> TElement for ApaceNode<'a> {
     {
         if let Some(attrs) = self.data.attrs() {
             for attr in attrs.iter() {
-                callback(&GenericAtomIdent(attr.name.local.clone()));
+                callback(GenericAtomIdent::cast(&attr.name.local));
             }
         }
     }
@@ -1384,6 +1386,9 @@ impl<'dom> DomTraversal<ApaceNode<'dom>> for RecalcStyle<'_> {
             recalc_style_at(self, context, el, &mut data, note_child);
 
             sync_pseudo_element_styles(el, &data, &self.nodes_needing_style_image_flush);
+            if let Some(style) = data.styles.get_primary() {
+                el.record_out_of_flow(style);
+            }
 
             if !data.damage.is_empty() {
                 // Mark the ancestor chain so that the damage propagation pass
@@ -1498,6 +1503,7 @@ fn sync_pseudo_element_styles(
                     .push(pe_node_id);
             }
         }
+        pe_node.record_out_of_flow(&pe_style);
         pe_data.styles.primary = Some(pe_style);
         pe_data.set_restyled();
     }

@@ -673,7 +673,7 @@ dependencies = [
  "accesskit_windows",
  "android-activity",
  "raw-window-handle",
- "wingy-core",
+ "wingy-core 0.31.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1440,14 +1440,6 @@ name = "built"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c0e531d93d39c34eef561e929e8a7f86d77a5af08aac4f6d6e39976c51858e9"
-
-[[package]]
-name = "bump"
-version = "0.0.0"
-dependencies = [
- "semver",
- "toml_edit 0.22.27",
-]
 
 [[package]]
 name = "bumpalo"
@@ -6415,7 +6407,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit 0.25.17+spec-1.1.0",
+ "toml_edit",
 ]
 
 [[package]]
@@ -8013,8 +8005,6 @@ checksum = "c0e973b34477b7823833469eb0f5a3a60370fef7a453e02d751b59180d0a5a05"
 [[package]]
 name = "takia"
 version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8ae36ee56baa5536b2385767ee6db86f6de10264e19cc828da01f7c5d8015d5"
 dependencies = [
  "serde",
  "slotmap",
@@ -8402,17 +8392,11 @@ dependencies = [
  "indexmap",
  "serde_core",
  "serde_spanned",
- "toml_datetime 1.1.2+spec-1.1.0",
+ "toml_datetime",
  "toml_parser",
  "toml_writer",
  "winnow 1.0.4",
 ]
-
-[[package]]
-name = "toml_datetime"
-version = "0.6.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22cddaf88f4fbc13c51aebbf5f8eceb5c7c5a9da2ac40a13519eb5b0a0e8f11c"
 
 [[package]]
 name = "toml_datetime"
@@ -8425,24 +8409,12 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41fe8c660ae4257887cf66394862d21dbca4a6ddd26f04a3560410406a2f819a"
-dependencies = [
- "indexmap",
- "toml_datetime 0.6.11",
- "toml_write",
- "winnow 0.7.15",
-]
-
-[[package]]
-name = "toml_edit"
 version = "0.25.17+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3641d5bbb5349a79e1020a242d251efbc546ad8048d133958323ce9c40a9c9c"
 dependencies = [
  "indexmap",
- "toml_datetime 1.1.2+spec-1.1.0",
+ "toml_datetime",
  "toml_parser",
  "winnow 1.0.4",
 ]
@@ -8455,12 +8427,6 @@ checksum = "baa693a8032d7e1cada7d0041e96126df243179ff061456783ac7f12bda4744c"
 dependencies = [
  "winnow 1.0.4",
 ]
-
-[[package]]
-name = "toml_write"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
@@ -10121,8 +10087,6 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "wingy"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "105065974fb310666dc1d8a6de02f8483e68855a3990bed69ac78eb25aac91f0"
 dependencies = [
  "bitflags 2.13.2",
  "cfg_aliases",
@@ -10135,8 +10099,8 @@ dependencies = [
  "wingy-android",
  "wingy-appkit",
  "wingy-common",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
  "wingy-orbital",
  "wingy-uikit",
  "wingy-wayland",
@@ -10148,8 +10112,6 @@ dependencies = [
 [[package]]
 name = "wingy-android"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "932ab55306a8fe08c36d980ad5db5c6238b8fc5ca5eaab35360ce9c9a1a0b89e"
 dependencies = [
  "android-activity",
  "bitflags 2.13.2",
@@ -10157,15 +10119,13 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "tracing",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-appkit"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f3564ec6695ad99023d68b65a09d6c8c480406ebf9c04e1f74b4e89fd0a19d7"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
@@ -10180,15 +10140,13 @@ dependencies = [
  "smol_str",
  "tracing",
  "wingy-common",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-common"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "546e2c1ecf997c4c6b6ec88ce58188ab70dbb823e0637659aa36274c5aafe19e"
 dependencies = [
  "block2 0.6.2",
  "memmap2 0.9.11",
@@ -10197,10 +10155,23 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "smol_str",
  "tracing",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
  "x11-dl",
  "xkbcommon-dl",
+]
+
+[[package]]
+name = "wingy-core"
+version = "0.31.0"
+dependencies = [
+ "bitflags 2.13.2",
+ "cursor-icon",
+ "keyboard-types 0.8.3",
+ "raw-window-handle",
+ "smol_str",
+ "web-time",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
@@ -10215,8 +10186,12 @@ dependencies = [
  "raw-window-handle",
  "smol_str",
  "web-time",
- "wingy-dpi",
+ "wingy-dpi 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "wingy-dpi"
+version = "0.1.2"
 
 [[package]]
 name = "wingy-dpi"
@@ -10227,8 +10202,6 @@ checksum = "4b73b8b020bc6d444275f260f3af541470f1bc7b5ba9e712d9fd49aa3aa42dff"
 [[package]]
 name = "wingy-orbital"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd5db5755c3fa4b665c5bc68ac5792d3574403a63798190326d66661fd93b24d"
 dependencies = [
  "bitflags 2.13.2",
  "libredox",
@@ -10237,15 +10210,13 @@ dependencies = [
  "redox_event",
  "smol_str",
  "tracing",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-uikit"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a00bfd4e25107a109d165eb3ffb465264c55fc042d49b63943d99ecbc276a5"
 dependencies = [
  "bitflags 2.13.2",
  "block2 0.6.2",
@@ -10258,15 +10229,13 @@ dependencies = [
  "smol_str",
  "tracing",
  "wingy-common",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-wayland"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba01d46aec13445e14977349f5cd1c8e4aecfcaf540ffbc45dd59dcbfcd3e201"
 dependencies = [
  "bitflags 2.13.2",
  "calloop",
@@ -10286,15 +10255,13 @@ dependencies = [
  "wayland-protocols",
  "wayland-protocols-plasma",
  "wingy-common",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-web"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ea2239ebd0e0d7553eb50fd1daa990b478ef7c774f54a263cf91b99a66d65e8"
 dependencies = [
  "atomic-waker",
  "bitflags 2.13.2",
@@ -10309,15 +10276,13 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-win32"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a6a7eb62d3fc54cb93c538d610e4694984e547b89975f96a1d0bed63db08e52"
 dependencies = [
  "bitflags 2.13.2",
  "cursor-icon",
@@ -10328,15 +10293,13 @@ dependencies = [
  "unicode-segmentation",
  "windows-sys 0.61.2",
  "wingy-common",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
 ]
 
 [[package]]
 name = "wingy-x11"
 version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "651f9f64f09dee3d453e75542e477bc14350a38c28295de734e19d2eddcba8bb"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -10349,8 +10312,8 @@ dependencies = [
  "smol_str",
  "tracing",
  "wingy-common",
- "wingy-core",
- "wingy-dpi",
+ "wingy-core 0.31.0",
+ "wingy-dpi 0.1.2",
  "x11-dl",
  "x11rb 0.14.0",
  "xkbcommon-dl",
@@ -10403,6 +10366,7 @@ dependencies = [
  "image",
  "log",
  "markup5ever",
+ "mimalloc",
  "os_info",
  "owo-colors",
  "parley",

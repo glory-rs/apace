@@ -12,6 +12,7 @@ gpu = ["dep:anyrender_vello"]
 cpu = ["dep:anyrender_vello_cpu"]
 
 [dependencies]
+mimalloc = "0.1.48"
 apace-dom = { workspace = true, features = ["svg", "floats", "system-fonts", "woff", "complex-scripts", "text-transform-icu", "writing-mode"] }
 apace-html = {workspace = true }
 apace-vibey-script = { workspace = true }
