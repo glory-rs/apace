@@ -542,8 +542,11 @@ impl TextInputData {
                         }
                     }
                     "v" => {
+                        if shell_provider.request_clipboard_text().is_ok() {
+                            return None;
+                        }
                         let text = shell_provider.get_clipboard_text().unwrap_or_default();
-                        driver.insert_or_replace_selection(&text)
+                        driver.insert_or_replace_selection(&text);
                     }
                     _ => unreachable!(),
                 }
@@ -1205,3 +1208,43 @@ impl TextInputData {
 #[cfg(test)]
 #[path = "ime_context_tests.rs"]
 mod ime_context_tests;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ime_commit_replaces_preedit() {
+        for committed in ["完成", ""] {
+            for cursor in [Some((3, 3)), None] {
+                let mut input = TextInputData::new(false);
+                let mut font_ctx = FontContext::new();
+                let mut layout_ctx = LayoutContext::new();
+                input.apply_ime_event(
+                    &mut font_ctx,
+                    &mut layout_ctx,
+                    ApaceImeEvent::Preedit("仮".into(), cursor),
+                );
+                input.apply_ime_event(
+                    &mut font_ctx,
+                    &mut layout_ctx,
+                    ApaceImeEvent::Commit(committed.into()),
+                );
+                assert_eq!(input.editor.text(), committed);
+                input.apply_ime_event(&mut font_ctx, &mut layout_ctx, ApaceImeEvent::Disabled);
+                assert_eq!(input.editor.text(), committed);
+            }
+        }
+    }
+
+    #[test]
+    fn ime_commit_without_preedit() {
+        let mut input = TextInputData::new(false);
+        input.apply_ime_event(
+            &mut FontContext::new(),
+            &mut LayoutContext::new(),
+            ApaceImeEvent::Commit("text".into()),
+        );
+        assert_eq!(input.editor.text(), "text");
+    }
+}

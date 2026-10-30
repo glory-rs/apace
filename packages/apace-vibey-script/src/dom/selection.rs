@@ -1,5 +1,6 @@
 //! Selection API bindings and DOM-to-rendered text offset mapping.
 
+use apace_dom::CopyStyleGetters;
 use std::cell::Cell;
 
 use apace_dom::{BaseDocument, Node, NodeId, node::NodeData};

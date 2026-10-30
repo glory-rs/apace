@@ -7,6 +7,7 @@
 //! incremental layout enabled the popup appeared but never animated, and its
 //! text stayed at the transition's start color (transparent).
 
+use apace_dom::CopyStyleGetters;
 use apace_dom::DocumentConfig;
 use apace_html::{HtmlDocument, HtmlProvider};
 use apace_traits::shell::{ColorScheme, Viewport};

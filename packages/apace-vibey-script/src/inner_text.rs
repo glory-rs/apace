@@ -2,6 +2,7 @@
 //!
 //! Self-contained so that it can move into `apace-dom` later.
 
+use apace_dom::CopyStyleGetters;
 use apace_dom::node::{ListItemLayoutPosition, Marker, TextBrush, TextLayout};
 use apace_dom::{Node, NodeId};
 use markup5ever::local_name;

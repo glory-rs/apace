@@ -4,6 +4,7 @@
 use apace_traits::events::{ApaceScrollEvent, DomEvent, DomEventData};
 use apace_traits::node_id::NodeId;
 use style::values::computed::Overflow;
+use stylo_takia::CopyStyleGetters;
 use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::BaseDocument;

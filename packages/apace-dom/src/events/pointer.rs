@@ -1,5 +1,6 @@
 use apace_traits::node_id::NodeId;
 use std::collections::VecDeque;
+use stylo_takia::CopyStyleGetters;
 
 use web_time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 

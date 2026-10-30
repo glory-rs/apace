@@ -91,6 +91,7 @@ pub fn current_android_app() -> android_activity::AndroidApp {
 pub struct ApaceShellProvider {
     window: Arc<dyn Window>,
     proxy: ApaceShellProxy,
+    doc_id: usize,
     ime_password: AtomicBool,
     ime_enabled: AtomicBool,
     ime_area: Mutex<Option<[f32; 4]>>,
@@ -101,10 +102,11 @@ pub struct ApaceShellProvider {
     ime_context: Mutex<Option<(String, usize, usize)>>,
 }
 impl ApaceShellProvider {
-    pub fn new(window: Arc<dyn Window>, proxy: ApaceShellProxy) -> Self {
+    pub fn new(window: Arc<dyn Window>, proxy: ApaceShellProxy, doc_id: usize) -> Self {
         Self {
             window,
             proxy,
+            doc_id,
             ime_password: AtomicBool::new(false),
             ime_enabled: AtomicBool::new(false),
             ime_area: Mutex::new(None),
@@ -137,7 +139,9 @@ impl ShellProvider for ApaceShellProvider {
         }
     }
     fn request_redraw(&self) {
-        self.window.request_redraw();
+        self.proxy.send_event(ApaceShellEvent::RequestRedraw {
+            doc_id: self.doc_id,
+        });
     }
     fn set_cursor(&self, icon: Option<CursorIcon>) {
         match icon {
@@ -297,27 +301,23 @@ impl ShellProvider for ApaceShellProvider {
         )
     ))]
     fn get_clipboard_text(&self) -> Result<String, apace_traits::shell::ClipboardError> {
-        let mut cb = arboard::Clipboard::new().unwrap();
+        let mut cb = arboard::Clipboard::new().map_err(|_| apace_traits::shell::ClipboardError)?;
         cb.get_text()
             .map_err(|_| apace_traits::shell::ClipboardError)
     }
 
-    #[cfg(all(
-        feature = "clipboard",
-        any(
-            target_os = "windows",
-            target_os = "macos",
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd"
-        )
-    ))]
+    fn request_clipboard_text(&self) -> Result<(), apace_traits::shell::ClipboardError> {
+        self.proxy
+            .send_event(ApaceShellEvent::RequestClipboardText {
+                window_id: self.window.id(),
+            });
+        Ok(())
+    }
+
     fn set_clipboard_text(&self, text: String) -> Result<(), apace_traits::shell::ClipboardError> {
-        let mut cb = arboard::Clipboard::new().unwrap();
-        cb.set_text(text.to_owned())
-            .map_err(|_| apace_traits::shell::ClipboardError)
+        self.proxy
+            .send_event(ApaceShellEvent::SetClipboardText { text });
+        Ok(())
     }
 
     #[cfg(all(

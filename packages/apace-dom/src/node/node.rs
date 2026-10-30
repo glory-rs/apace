@@ -34,6 +34,7 @@ use style::values::generics::transform::{Scale, Translate};
 use style::values::specified::box_::{DisplayInside, DisplayOutside};
 use style_dom::ElementState;
 use style_traits::values::ToCss;
+use stylo_takia::CopyStyleGetters;
 use stylo_takia::WritingModeExt;
 use takia::{Cache, prelude::Layout};
 use thin_vec::ThinVec;
@@ -555,7 +556,11 @@ impl Node {
             .and_then(|parent_id| self.with(parent_id).primary_styles())
             .map(|style| style.clone_white_space_collapse());
         match white_space_collapse {
-            Some(WhiteSpaceCollapse::Preserve | WhiteSpaceCollapse::BreakSpaces) => false,
+            Some(
+                WhiteSpaceCollapse::Preserve
+                | WhiteSpaceCollapse::BreakSpaces
+                | WhiteSpaceCollapse::PreserveSpaces,
+            ) => false,
             Some(WhiteSpaceCollapse::PreserveBreaks) => !data.content.contains('\n'),
             Some(WhiteSpaceCollapse::Collapse) | None => true,
         }
@@ -1419,7 +1424,7 @@ impl Node {
             return true;
         }
 
-        if !matches!(style.clone_clip_path(), ClipPath::None) {
+        if !matches!(style.get_clip_path(), ClipPath::None) {
             return true;
         }
 
@@ -1436,6 +1441,10 @@ impl Node {
     ///    - Some(HitResult) if the position is within the node but doesn't match any children
     ///    - The result of recursively calling child.hit() on the the child element that is
     ///      positioned at that position if there is one.
+    ///
+    /// Hit testing may run between a DOM mutation and the next `resolve`, so the
+    /// paint lists and inline layouts it walks can still name nodes the mutation
+    /// dropped; those are skipped.
     ///
     /// TODO: z-index
     /// (If multiple children are positioned at the position then a random one will be recursed into)
@@ -1565,13 +1574,13 @@ impl Node {
         if matches_hoisted_content {
             if let Some(hoisted) = &self.stacking_context {
                 for hoisted_child in hoisted.pos_z_hoisted_children().rev() {
+                    let Some(child) = self.tree().get(hoisted_child.node_id) else {
+                        continue;
+                    };
                     let pos = hoisted_child.position(self.tree(), self.id);
                     let x = x - pos.x;
                     let y = y - pos.y;
-                    if let Some(hit) = self
-                        .with(hoisted_child.node_id)
-                        .hit_inner(x, y, scale, scrollbar)
-                    {
+                    if let Some(hit) = child.hit_inner(x, y, scale, scrollbar) {
                         return Some(hit);
                     }
                 }
@@ -1580,7 +1589,9 @@ impl Node {
 
         // Call `.hit()` on each child in turn. If any return `Some` then return that value. Else return `Some(self.id).
         for child_id in self.paint_children.borrow().iter().flatten().rev() {
-            let child = self.with(*child_id);
+            let Some(child) = self.tree().get(*child_id) else {
+                continue;
+            };
             let child_position = child.takia_position();
             let mut child_x = x;
             let mut child_y = y;
@@ -1615,13 +1626,13 @@ impl Node {
         if matches_hoisted_content {
             if let Some(hoisted) = &self.stacking_context {
                 for hoisted_child in hoisted.neg_z_hoisted_children().rev() {
+                    let Some(child) = self.tree().get(hoisted_child.node_id) else {
+                        continue;
+                    };
                     let pos = hoisted_child.position(self.tree(), self.id);
                     let x = x - pos.x;
                     let y = y - pos.y;
-                    if let Some(hit) = self
-                        .with(hoisted_child.node_id)
-                        .hit_inner(x, y, scale, scrollbar)
-                    {
+                    if let Some(hit) = child.hit_inner(x, y, scale, scrollbar) {
                         return Some(hit);
                     }
                 }
@@ -1640,11 +1651,11 @@ impl Node {
                     Cluster::from_point_exact(layout, x * scale, y * scale)
                 {
                     let node_id = cluster.style().brush.id;
-                    let text_pointer_events_none = self
-                        .with(node_id)
-                        .primary_styles()
-                        .is_some_and(|style| style.clone_pointer_events() == PointerEvents::None);
-                    if !text_pointer_events_none {
+                    if let Some(text_node) = self.tree().get(node_id)
+                        && !text_node.primary_styles().is_some_and(|style| {
+                            style.clone_pointer_events() == PointerEvents::None
+                        })
+                    {
                         return Some(HitResult {
                             node_id,
                             x,

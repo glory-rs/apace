@@ -4,7 +4,7 @@ use crate::events::{
     ApaceKeyboardData, NativeConverter, NativeFocusData, NativeFormData, NativePointerData,
     NativeScrollData, NativeTouchData, NativeWheelData, NodeHandle,
 };
-use crate::mutation_writer::{DioxusState, MutationWriter};
+use crate::mutation_writer::DioxusState;
 use crate::qual_name;
 use apace_dom::{
     Attribute, BaseDocument, DocGuard, DocGuardMut, Document, DocumentConfig, EventDriver,
@@ -33,7 +33,7 @@ fn get_dioxus_id(node: &Node) -> Option<ElementId> {
         .iter()
         .find(|attr| *attr.name.local == *"data-dioxus-id")
         .and_then(|attr| attr.value.parse::<usize>().ok())
-        .map(ElementId)
+        .map(ElementId::from_raw)
 }
 
 /// Integrates [`BaseDocument`] from  [`apace-dom`](apace_dom)  with [`VirtualDom`] from [`dioxus-core`](dioxus_core)
@@ -141,11 +141,11 @@ impl DioxusDocument {
 
     /// Run an initial build of the Dioxus vdom
     pub fn initial_build(&mut self) {
-        let mut inner = self.inner.borrow_mut();
-        let mut writer = MutationWriter::new(&mut inner, &mut self.vdom_state);
-        self.vdom.rebuild(&mut writer);
-        drop(writer);
-        drop(inner);
+        // Mutations are buffered and only applied once the vdom has finished running. This means
+        // that the document is not borrowed while user code (which may access it) is running.
+        self.vdom.rebuild(&mut self.vdom_state.buffered_mutations);
+        self.vdom_state
+            .apply_buffered_mutations(&mut self.inner.borrow_mut());
         self.flush_queued_mounted_events();
     }
 
@@ -236,11 +236,12 @@ impl Document for DioxusDocument {
             }
         }
 
-        let mut inner = self.inner.borrow_mut();
-        let mut writer = MutationWriter::new(&mut inner, &mut self.vdom_state);
-        self.vdom.render_immediate(&mut writer);
-        drop(writer);
-        drop(inner);
+        // Mutations are buffered and only applied once the vdom has finished running. This means
+        // that the document is not borrowed while user code (which may access it) is running.
+        self.vdom
+            .render_immediate(&mut self.vdom_state.buffered_mutations);
+        self.vdom_state
+            .apply_buffered_mutations(&mut self.inner.borrow_mut());
         self.flush_queued_mounted_events();
 
         true
@@ -664,6 +665,82 @@ mod tests {
         }
         // The first round creates the (retained) template prototype nodes.
         assert_eq!(counts[1], counts[2]);
+    }
+
+    #[test]
+    // Regression test: an input focused from `onmounted` (as in TodoMVC) is focused before its
+    // text editor is created by layout. IME must still end up enabled, as on macOS the standard
+    // key bindings (e.g. `deleteBackward:` for Backspace) are only delivered while it is.
+    fn input_focused_on_mount_enables_ime() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        #[derive(Default)]
+        struct ImeShellProvider(AtomicBool);
+        impl apace_traits::shell::ShellProvider for ImeShellProvider {
+            fn set_ime_enabled(&self, is_enabled: bool) {
+                self.0.store(is_enabled, Ordering::SeqCst);
+            }
+        }
+
+        fn app() -> Element {
+            rsx!(input {
+                r#type: "text",
+                onmounted: async move |evt| evt.set_focus(true).await.unwrap(),
+            })
+        }
+
+        let shell_provider = std::sync::Arc::new(ImeShellProvider::default());
+        let config = DocumentConfig {
+            shell_provider: Some(shell_provider.clone() as _),
+            ..Default::default()
+        };
+        let mut doc = DioxusDocument::new(VirtualDom::new(app), config);
+        doc.initial_build();
+        poll_until_idle(&mut doc);
+        doc.inner.borrow_mut().resolve(0.0);
+
+        assert!(doc.inner.borrow().get_focussed_node_id().is_some());
+        assert!(shell_provider.0.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    // Regression test for a panic. Tasks are polled while the vdom renders, at which point
+    // the document must not be borrowed.
+    fn task_polled_during_render_can_access_document() {
+        #[derive(Default)]
+        struct State {
+            focus: Cell<bool>,
+            mounted: RefCell<Option<Rc<MountedData>>>,
+        }
+
+        fn app() -> Element {
+            let state = consume_context::<Rc<State>>();
+            if state.focus.get() {
+                let mounted = state.mounted.borrow().clone().unwrap();
+                spawn(async move {
+                    mounted.set_focus(true).await.unwrap();
+                    mounted.get_client_rect().await.unwrap();
+                });
+            }
+            let focus = state.focus.get();
+            rsx!(input {
+                "data-focus": "{focus}",
+                onmounted: move |e| *state.mounted.borrow_mut() = Some(e.data()),
+            })
+        }
+
+        let state = Rc::new(State::default());
+        let vdom = VirtualDom::new(app).with_root_context(Rc::clone(&state));
+        let mut doc = DioxusDocument::new(vdom, DocumentConfig::default());
+        doc.initial_build();
+        state.focus.set(true);
+        rerender(&mut doc);
+        let inner = doc.inner.borrow();
+        let focussed = inner.get_node(inner.get_focussed_node_id().unwrap());
+        assert_eq!(
+            focussed.unwrap().attr(crate::LocalName::from("data-focus")),
+            Some("true")
+        );
     }
 
     #[test]

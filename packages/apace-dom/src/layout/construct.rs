@@ -1,6 +1,7 @@
 use apace_traits::node_id::NodeId;
 use core::str;
 use std::sync::Arc;
+use stylo_takia::CopyStyleGetters;
 
 use markup5ever::{QualName, local_name, ns};
 use parley::StyleProperty;
@@ -326,21 +327,11 @@ fn classify_flow_children(
     classification: &mut FlowClassification,
 ) {
     let node = &doc.nodes[container_node_id];
-    // ::before/::after pseudos with display:contents are transparent for box
-    // generation, so their children (e.g. generated text) participate in the
-    // container's formatting context and vote in the classification. Pseudos
-    // with any other display value generate their own box, which every
-    // construction arm already pushes explicitly, so they cast no vote.
-    let pseudo_ids = node
-        .before()
-        .into_iter()
-        .chain(node.after())
-        .filter(|pe_id| {
-            let display = doc.nodes[*pe_id]
-                .display_style()
-                .unwrap_or(Display::inline());
-            matches!(display.inside(), DisplayInside::Contents)
-        });
+    // ::before/::after pseudos vote like children: a pseudo with display:contents is
+    // transparent for box generation, so its children (e.g. generated text) participate
+    // in the container's formatting context, and any other pseudo generates its own
+    // inline or block box in that formatting context.
+    let pseudo_ids = node.before().into_iter().chain(node.after());
     let child_ids = node.children.iter().copied().chain(pseudo_ids);
     for child_id in child_ids {
         let child = &doc.nodes[child_id];
@@ -904,12 +895,19 @@ fn create_text_editor(doc: &mut BaseDocument, input_element_id: NodeId, is_multi
         .attr(local_name!("placeholder"))
         .filter(|s| s.len() <= 4096)
         .map(str::to_owned);
+    let is_focussed = node.is_focussed();
     let element = &mut node.data.downcast_element_mut().unwrap();
     if !matches!(element.special_data, SpecialElementData::TextInput(_)) {
         let mut text_input_data = TextInputData::new(is_multiline);
         let editor = &mut text_input_data.editor;
         editor.set_text(&initial_text);
         element.special_data = SpecialElementData::TextInput(text_input_data);
+
+        // An input focused before its editor existed (e.g. focused before the first layout)
+        // could not enable IME when it was focused, so enable it now.
+        if is_focussed {
+            doc.shell_provider.set_ime_enabled(true);
+        }
     }
 
     let SpecialElementData::TextInput(text_input_data) = &mut element.special_data else {

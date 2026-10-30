@@ -10,6 +10,7 @@ use style::{
         specified::box_::{DisplayInside, DisplayOutside},
     },
 };
+use stylo_takia::CopyStyleGetters;
 
 use crate::{
     NodeData,

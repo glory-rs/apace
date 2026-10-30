@@ -11,7 +11,7 @@ homepage = "https://dioxuslabs.com/learn/0.7/getting_started"
 keywords = ["dom", "ui", "gui", "react"]
 
 [features]
-default = ["accessibility", "hot-reload", "net", "html", "svg", "system-fonts", "clipboard", "file-dialog", "vello-hybrid", "woff", "text-transform-icu", "apple-font-embolden"]
+default = ["accessibility", "hot-reload", "net", "html", "svg", "system-fonts", "file-dialog", "vello-hybrid", "woff", "text-transform-icu", "apple-font-embolden"]
 prelude = ["dep:dioxus-core-macro", "dep:dioxus-hooks", "dep:dioxus-signals", "dep:dioxus-stores", "dep:manganis"]
 
 # DOM features
@@ -28,7 +28,6 @@ text-transform-icu = ["apace-dom/text-transform-icu"]
 writing-mode = ["apace-dom/writing-mode", "dioxus-native-dom/writing-mode"]
 
 # Shell Features
-clipboard = ["apace-shell/clipboard"]
 file-dialog = ["apace-shell/file-dialog"]
 accessibility = ["apace-shell/accessibility", "apace-dom/accessibility"]
 data-uri = ["apace-shell/data-uri"]
@@ -116,7 +115,6 @@ webbrowser = { workspace = true }
 
 # Other dependencies
 tracing = { workspace = true, optional = true }
-rustc-hash = { workspace = true }
 futures-util = { workspace = true }
 cfg-if = "1.0.4"
 slotmap = { workspace = true }

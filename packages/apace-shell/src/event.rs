@@ -10,6 +10,12 @@ use apace_accesskit::WindowEvent as AccessKitEvent;
 
 #[derive(Debug, Clone)]
 pub enum ApaceShellEvent {
+    SetClipboardText {
+        text: String,
+    },
+    RequestClipboardText {
+        window_id: WindowId,
+    },
     Poll {
         window_id: WindowId,
     },

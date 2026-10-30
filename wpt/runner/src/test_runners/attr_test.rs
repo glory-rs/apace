@@ -1,3 +1,4 @@
+use apace_dom::CopyStyleGetters;
 use std::time::Duration;
 
 use apace_dom::{BaseDocument, Document as _, Node, NodeId};

@@ -1,6 +1,7 @@
 //! Repaint- and relayout-only restyles must update surviving anonymous boxes.
 //! Use hover rather than attribute mutation, which would reconstruct them.
 
+use apace_dom::CopyStyleGetters;
 use apace_dom::DocumentConfig;
 use apace_html::{HtmlDocument, HtmlProvider};
 use apace_traits::node_id::NodeId;

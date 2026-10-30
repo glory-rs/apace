@@ -5,6 +5,7 @@ use apace_traits::node_id::NodeId;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use std::sync::atomic::Ordering;
+use stylo_takia::CopyStyleGetters;
 
 use crate::StyleThreading;
 use crate::layout::damage::compute_layout_damage;
@@ -228,7 +229,25 @@ impl crate::document::BaseDocument {
                 transition.is_new = false;
             }
         }
-        sets.retain(|_, state| !state.is_empty());
+        let mut finished = Vec::new();
+        sets.retain(|key, state| {
+            let keep = !state.is_empty();
+            if !keep {
+                finished.push(key.node);
+            }
+            keep
+        });
+        // Clear `may_have_animations` on elements whose last set (including
+        // their pseudo-elements' sets) was just removed.
+        for node in finished {
+            if sets.keys().any(|key| key.node == node) {
+                continue;
+            }
+            let node_id = NodeId::from_u64(node.id() as u64);
+            if let Some(data) = self.nodes.get(node_id).and_then(|node| node.element_data()) {
+                data.may_have_animations.store(false, Ordering::Relaxed);
+            }
+        }
         self.has_active_animations = sets.values().any(|state| state.needs_animation_ticks());
 
         // Maybe run garbage collection. Stylo has internal to determine whether to run or not.
@@ -269,12 +288,15 @@ impl crate::document::BaseDocument {
             snapshot_map: &self.snapshots,
             registered_speculative_painters: &RegisteredPaintersImpl,
         };
-        let mut thread_local = ThreadLocalStyleContext::new();
-        let mut context = StyleContext {
-            shared: &shared,
-            thread_local: &mut thread_local,
+        // The thread-local context's sequential task list asserts the LAYOUT state when dropped
+        let styles = {
+            let mut thread_local = ThreadLocalStyleContext::new();
+            let mut context = StyleContext {
+                shared: &shared,
+                thread_local: &mut thread_local,
+            };
+            resolve_style(&mut context, node, RuleInclusion::All, None, None)
         };
-        let styles = resolve_style(&mut context, node, RuleInclusion::All, None, None);
 
         style::thread_state::exit(ThreadState::LAYOUT);
 
@@ -425,7 +447,7 @@ impl selectors::Element for ApaceNode<'_> {
         // Shadow DOM functionality in Stylo.
         let non_null =
             NonNull::new((self.id.as_u64() as usize).wrapping_add(1) as *mut ()).unwrap();
-        OpaqueElement::from_non_null_ptr(non_null)
+        OpaqueElement::from_ptr(non_null)
     }
 
     fn parent_element(&self) -> Option<Self> {
@@ -552,7 +574,8 @@ impl selectors::Element for ApaceNode<'_> {
 
             NonTSPseudoClass::InRange => false,
             NonTSPseudoClass::Modal => self.element_state().contains(ElementState::MODAL),
-            NonTSPseudoClass::Open => false,
+            NonTSPseudoClass::MozInert => self.element_state().contains(ElementState::INERT),
+            NonTSPseudoClass::Open => self.element_state().contains(ElementState::OPEN),
             NonTSPseudoClass::Optional => false,
             NonTSPseudoClass::OutOfRange => false,
             NonTSPseudoClass::PopoverOpen => {
@@ -812,7 +835,12 @@ impl<'a> TElement for ApaceNode<'a> {
     }
 
     fn borrow_data(&self) -> Option<ElementDataRef<'_>> {
-        self.try_stylo_element_data().and_then(|s| s.get())
+        // Stylo reads the existence of element data as "has been styled" (its invalidator
+        // unwraps the primary style of every element with data it descends into), but an
+        // element here can carry data before it has styles.
+        self.try_stylo_element_data()
+            .and_then(|s| s.get())
+            .filter(|data| data.styles.primary.is_some())
     }
 
     fn mutate_data(&self) -> Option<ElementDataMut<'_>> {
@@ -824,11 +852,24 @@ impl<'a> TElement for ApaceNode<'a> {
     }
 
     fn may_have_animations(&self) -> bool {
-        true
+        self.element_data()
+            .is_some_and(|data| data.may_have_animations.load(Ordering::Relaxed))
+    }
+
+    fn set_may_have_animations(&self) {
+        if let Some(data) = self.element_data() {
+            data.may_have_animations.store(true, Ordering::Relaxed);
+        }
     }
 
     fn has_animations(&self, context: &SharedStyleContext) -> bool {
-        self.has_css_animations(context, None) || self.has_css_transitions(context, None)
+        if !self.may_have_animations() {
+            return false;
+        }
+        let key = AnimationSetKey::new_for_non_pseudo(TNode::opaque(&TElement::as_node(self)));
+        context
+            .animations
+            .has_active_animations_or_transitions(&key)
     }
 
     fn has_css_animations(
@@ -836,6 +877,9 @@ impl<'a> TElement for ApaceNode<'a> {
         context: &SharedStyleContext,
         pseudo_element: Option<PseudoElement>,
     ) -> bool {
+        if !self.may_have_animations() {
+            return false;
+        }
         let key = AnimationSetKey::new(TNode::opaque(&TElement::as_node(self)), pseudo_element);
         context.animations.has_active_animations(&key)
     }
@@ -845,6 +889,9 @@ impl<'a> TElement for ApaceNode<'a> {
         context: &SharedStyleContext,
         pseudo_element: Option<PseudoElement>,
     ) -> bool {
+        if !self.may_have_animations() {
+            return false;
+        }
         let key = AnimationSetKey::new(TNode::opaque(&TElement::as_node(self)), pseudo_element);
         context.animations.has_active_transitions(&key)
     }

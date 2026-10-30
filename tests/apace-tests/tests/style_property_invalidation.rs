@@ -11,6 +11,7 @@
 //! the stale bit, the root was never marked dirty, and the style traversal
 //! was skipped entirely.
 
+use apace_dom::CopyStyleGetters;
 use apace_dom::{BaseDocument, DocumentConfig};
 use apace_html::{HtmlDocument, HtmlProvider};
 use apace_traits::shell::{ColorScheme, Viewport};

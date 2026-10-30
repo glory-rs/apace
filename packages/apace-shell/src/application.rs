@@ -8,6 +8,11 @@ use wingy::event::WindowEvent;
 use wingy::event_loop::ActiveEventLoop;
 use wingy::window::WindowId;
 
+use wingy::{
+    data_transfer::{DataTransferSendBuilder, TypeHint},
+    event_loop::AsyncRequestSerial,
+};
+
 #[cfg(target_os = "macos")]
 use wingy::platform::macos::ApplicationHandlerExtMacOS;
 
@@ -18,6 +23,7 @@ pub struct ApaceApplication<Rend: WindowRenderer> {
     pub pending_windows: Vec<WindowConfig<Rend>>,
     pub proxy: ApaceShellProxy,
     pub event_queue: Receiver<ApaceShellEvent>,
+    pending_clipboard: HashMap<AsyncRequestSerial, WindowId>,
 }
 
 impl<Rend: WindowRenderer> ApaceApplication<Rend> {
@@ -27,6 +33,7 @@ impl<Rend: WindowRenderer> ApaceApplication<Rend> {
             pending_windows: Vec::new(),
             proxy,
             event_queue,
+            pending_clipboard: HashMap::new(),
         }
     }
 
@@ -44,6 +51,22 @@ impl<Rend: WindowRenderer> ApaceApplication<Rend> {
         event: ApaceShellEvent,
     ) {
         match event {
+            ApaceShellEvent::SetClipboardText { text } => {
+                let data = DataTransferSendBuilder::new(text)
+                    .with_type(TypeHint::Plaintext, |text, _| Some(text.clone()))
+                    .build();
+                if let Err(_error) = event_loop.set_clipboard(data) {
+                    #[cfg(feature = "tracing")]
+                    tracing::error!("Failed to set clipboard: {_error}");
+                }
+            }
+            ApaceShellEvent::RequestClipboardText { window_id } => {
+                if let Ok(Some(id)) = event_loop.clipboard()
+                    && let Ok(serial) = event_loop.fetch_data_transfer(id, &TypeHint::Plaintext)
+                {
+                    self.pending_clipboard.insert(serial, window_id);
+                }
+            }
             ApaceShellEvent::Poll { window_id } => {
                 if let Some(window) = self.windows.get_mut(&window_id) {
                     window.poll();
@@ -147,6 +170,30 @@ impl<Rend: WindowRenderer> ApplicationHandler for ApaceApplication<Rend> {
         window_id: WindowId,
         event: WindowEvent,
     ) {
+        if let WindowEvent::DataTransferReceived { serial, value, .. } = &event
+            && let Some(&requesting_window) = self.pending_clipboard.get(serial)
+        {
+            let result = value.try_as_string();
+            if result
+                .as_ref()
+                .is_err_and(|error| error.kind() == std::io::ErrorKind::WouldBlock)
+            {
+                return;
+            }
+            self.pending_clipboard.remove(serial);
+            if let Ok(text) = result
+                && let Some(window) = self.windows.get_mut(&requesting_window)
+            {
+                window
+                    .doc
+                    .handle_ui_event(apace_traits::events::UiEvent::Paste(text));
+                window.request_redraw();
+                self.proxy.send_event(ApaceShellEvent::Poll {
+                    window_id: requesting_window,
+                });
+            }
+            return;
+        }
         // Exit the app when window close is requested.
         if matches!(event, WindowEvent::CloseRequested) {
             // Drop window before exiting event loop
