@@ -2,7 +2,7 @@
 
 use std::{path::Path, process::Command};
 use wptreport::{
-    reports::wpt_report::{self, WptRunInfo},
+    reports::wpt_report::{self, StandardRunInfo, WptRunInfo},
     wpt_report::WptReport,
 };
 
@@ -26,7 +26,7 @@ fn get_git_hash(path: &Path) -> String {
 pub fn generate_run_info(wpt_dir: &Path) -> WptRunInfo {
     let os_info = os_info::get();
 
-    WptRunInfo {
+    StandardRunInfo {
         product: String::from("apace"),
         revision: get_git_hash(wpt_dir),
         browser_version: Some(get_git_hash(&std::env::current_dir().unwrap())),
@@ -39,6 +39,7 @@ pub fn generate_run_info(wpt_dir: &Path) -> WptRunInfo {
         wasm: false,
         os: String::new(),
         os_version: String::new(),
+        linux_distro: None,
         version: String::new(),
         processor: String::new(),
         bits: match os_info.bitness() {
@@ -53,6 +54,7 @@ pub fn generate_run_info(wpt_dir: &Path) -> WptRunInfo {
         win10_2009: false,
         win11_2009: false,
     }
+    .into()
 }
 
 fn convert_status(status: TestStatus) -> wpt_report::TestStatus {

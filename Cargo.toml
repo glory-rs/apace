@@ -27,32 +27,32 @@ members = [
     "examples/wasm_hello",
 ]
 exclude = ["sites"]
-resolver = "2"
+resolver = "3"
 
 [workspace.package]
-version = "0.3.0-beta.4"
+version = "0.3.0"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/glory-rs/apace"
 repository = "https://github.com/glory-rs/apace"
 categories = ["gui"]
 edition = "2024"
-rust-version = "1.91.0"
+rust-version = "1.95"
 
 [workspace.dependencies]
 # Apace dependencies(in-repo)
-apace = { version = "=0.3.0-beta.4", path = "./packages/apace" }
-apace-dom = { version = "=0.3.0-beta.4", path = "./packages/apace-dom", default-features = false }
-apace-html = { version = "=0.3.0-beta.4", path = "./packages/apace-html", default-features = false }
-apace-net = { version = "=0.3.0-beta.4", path = "./packages/apace-net", default-features = false }
-apace-paint = { version = "=0.3.0-beta.4", path = "./packages/apace-paint", default-features = false }
-apace-vibey-script = { version = "=0.3.0-beta.4", path = "./packages/apace-vibey-script", default-features = false }
-apace-shell = { version = "=0.3.0-beta.4", path = "./packages/apace-shell", default-features = false }
-apace-traits = { version = "=0.3.0-beta.4", path = "./packages/apace-traits", default-features = false }
-stylo_takia = { version = "=0.3.0-beta.4", path = "./packages/stylo_takia", default-features = false }
+apace = { version = "=0.3.0", path = "./packages/apace" }
+apace-dom = { version = "=0.3.0", path = "./packages/apace-dom", default-features = false }
+apace-html = { version = "=0.3.0", path = "./packages/apace-html", default-features = false }
+apace-net = { version = "=0.3.0", path = "./packages/apace-net", default-features = false }
+apace-paint = { version = "=0.3.0", path = "./packages/apace-paint", default-features = false }
+apace-vibey-script = { version = "=0.3.0", path = "./packages/apace-vibey-script", default-features = false }
+apace-shell = { version = "=0.3.0", path = "./packages/apace-shell", default-features = false }
+apace-traits = { version = "=0.3.0", path = "./packages/apace-traits", default-features = false }
+stylo_takia = { version = "=0.3.0", path = "./packages/stylo_takia", default-features = false }
 dioxus-native = { version = "0.7.0", path = "./packages/dioxus-native", default-features = false }
 dioxus-native-dom = { version = "0.7.0", path = "./packages/dioxus-native-dom", default-features = false }
-apace_debug_timer = { version = "=0.1.3", path = "./packages/apace_debug_timer" }
-apace_accesskit = { version = "=0.2.1", path = "./packages/apace_accesskit", default-features = false }
+apace_debug_timer = { version = "=0.1.4", path = "./packages/apace_debug_timer" }
+apace_accesskit = { version = "=0.2.2", path = "./packages/apace_accesskit", default-features = false }
 browser-persistence = { path = "./apps/browser/persistence" }
 apace-test-harness = { path = "./packages/apace-test-harness" }
 
@@ -72,11 +72,11 @@ html5ever = "0.40.1"   # needs to match stylo web_atoms version
 xml5ever = "0.40.0"    # needs to match stylo web_atoms version
 
 # Other Servo dependencies
-euclid = "0.22"
-atomic_refcell = "0.1.13"
-app_units = "0.7.5"
-smallvec = "1"
-thin-vec = "0.2"
+euclid = "0.22.14"
+atomic_refcell = "0.1.14"
+app_units = "0.7.8"
+smallvec = "1.16.4"
+thin-vec = "0.2.21"
 
 # DioxusLabs dependencies
 dioxus = { version = "0.8.0-alpha.3" }
@@ -98,7 +98,7 @@ dioxus-cli-config = { version = "0.8.0-alpha.3" }
 dioxus-core-macro = { version = "0.8.0-alpha.3" }
 
 # Takia + Parley + Fontations
-takia = { version = "=0.15.0", git = "https://github.com/glory-rs/takia", rev = "c79a14b54ea632462a15624acf9e7daf792bcd13", default-features = false, features = [
+takia = { version = "=0.15.1", path = "../takia", default-features = false, features = [
     "std",
     "flexbox",
     "flexbox_balance",
@@ -108,7 +108,7 @@ takia = { version = "=0.15.0", git = "https://github.com/glory-rs/takia", rev = 
     "calc",
     "detailed_layout_info",
 ] }
-parley = { version = "0.12", default-features = false, features = ["std"] }
+parley = { version = "0.12.0", default-features = false, features = ["std"] }
 skrifa = { version = "0.44", default-features = false, features = [
     "std",
 ] } # Should match parley and vello versions
@@ -124,80 +124,80 @@ anyrender_svg = { version = "0.15.0" }
 wgpu_context = { version = "0.10.0" }
 
 # Linebender + Fontations + WGPU + SVG
-color = "0.3"
-linebender_resource_handle = "0.1"
-peniko = "0.6.0"
+color = "0.3.3"
+linebender_resource_handle = "0.1.1"
+peniko = "0.6.1"
 kurbo = "0.13.1"
-wgpu = "30"
+wgpu = "30.0.1"
 usvg = "0.48.1"
 svgtypes = "0.16.1" # Should match usvg's version
 
 # Windowing & Input
-raw-window-handle = "0.6.0"
-arboard = { version = "3.4.1", default-features = false }
-wingy = { version = "=0.31.0", git = "https://github.com/glory-rs/wingy", rev = "b80608744193df808d71dd9eaf9ff02627351f03" }
-accesskit = "0.25"
-rfd = { version = "0.17.1", default-features = false }
-keyboard-types = "0.8"
-cursor-icon = "1"
+raw-window-handle = "0.6.2"
+arboard = { version = "3.7.0", default-features = false }
+wingy = { version = "=0.31.1", path = "../wingy/wingy" }
+accesskit = "0.25.2"
+rfd = { version = "0.16.1", default-features = false }
+keyboard-types = "0.8.3"
+cursor-icon = "1.2.0"
 
 # IO & Networking
-url = "2.5.0"
-http = "1.1.0"
-data-url = "0.3.1"
-tokio = "1.42"
-reqwest = { version = "0.13", default-features = false }
-reqwest-middleware = { version = "0.5.1", default-features = false }
-http-cache-reqwest = { version = "=1.0.0-alpha.6", default-features = false }
-http-cache = { version = "=1.0.0-alpha.6", default-features = false }
+url = "2.5.8"
+http = "1.5.0"
+data-url = "0.3.2"
+tokio = "1.54.1"
+reqwest = { version = "0.13.5", default-features = false }
+reqwest-middleware = { version = "0.5.2", default-features = false }
+http-cache-reqwest = { version = "=1.0.0-alpha.10", default-features = false, features = ["reqwest-middleware"] }
+http-cache = { version = "=1.0.0-alpha.9", default-features = false }
 
 # Media & Decoding
-image = { version = "0.25.6", default-features = false }
-wuff = "0.2"
-html-escape = "0.2.13"
-percent-encoding = "2.3.1"
-png = "0.18"
-serde = "1"
+image = { version = "0.25.10", default-features = false }
+wuff = "0.2.9"
+html-escape = "0.3.0"
+percent-encoding = "2.3.2"
+png = "0.18.1"
+serde = "1.0.229"
 
 # Dioxus Native
-webbrowser = "1.0"
+webbrowser = "1.2.5"
 directories = "6.0.0"
 
 # WASM
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4"
+wasm-bindgen = "0.2.130"
+wasm-bindgen-futures = "0.4.80"
 tracing-wasm = "0.2.1"
-web-sys = "0.3.98"
-web-time = "1"
-console_error_panic_hook = "0.1"
+web-sys = "0.3.107"
+web-time = "1.1.0"
+console_error_panic_hook = "0.1.7"
 
 # JavaScript engine (Boa)
-boa_engine = "0.22"
-boa_runtime = "0.22"
-boa_gc = "0.22"
+boa_engine = "0.22.0"
+boa_runtime = "0.22.0"
+boa_gc = "0.22.0"
 
 # Other dependencies
-rustc-hash = "2.1.2"
-bytes = "1.7.1"
-slotmap = "1.0.7"
-tracing = "0.1.40"
-tracing-subscriber = "0.3"
-futures-util = "0.3.30"
+rustc-hash = "2.1.3"
+bytes = "1.12.1"
+slotmap = "1.1.1"
+tracing = "0.1.44"
+tracing-subscriber = "0.3.23"
+futures-util = "0.3.34"
 futures-intrusive = "0.5.0"
-pollster = "0.4"
-smol_str = "0.3"
-bitflags = "2.8.0"
-bytemuck = "1"
-rayon = "1"
+pollster = "1.0.1"
+smol_str = "0.3.7"
+bitflags = "2.13.2"
+bytemuck = "1.25.2"
+rayon = "1.12.0"
 test-that = "0.6.0"
-thread_local = "1"
+thread_local = "1.1.10"
 
 # Unicode (ICU4X)
-icu_casemap = { version = "2.3", default-features = false, features = ["compiled_data"] }
-icu_locale_core = { version = "2.3", default-features = false }
-icu_properties = { version = "2.3", default-features = false, features = ["compiled_data"] }
-icu_segmenter = { version = "2.3", default-features = false, features = ["compiled_data"] }
-writeable = { version = "0.6", default-features = false }
+icu_casemap = { version = "2.3.0", default-features = false, features = ["compiled_data"] }
+icu_locale_core = { version = "2.3.0", default-features = false }
+icu_properties = { version = "2.3.0", default-features = false, features = ["compiled_data"] }
+icu_segmenter = { version = "2.3.0", default-features = false, features = ["compiled_data"] }
+writeable = { version = "0.6.4", default-features = false }
 
 [profile.profile]
 inherits = "release"
@@ -250,7 +250,7 @@ edition = "2024"
 description = "Top level crate for Apace"
 license = "MIT OR Apache-2.0"
 keywords = ["dom", "ui", "gui", "react", "wasm"]
-rust-version = "1.91.0"
+rust-version = "1.95"
 publish = false
 
 [features]
@@ -286,12 +286,12 @@ image = { workspace = true }
 png = { workspace = true }
 peniko = { workspace = true }
 color = { workspace = true }
-env_logger = "0.11"
-tracing-subscriber = "0.3"
-vello = "0.11"
-vello_cpu = "0.3"
-vello_gpu = "0.3"
-vello_common = "0.3"
+env_logger = "0.11.11"
+tracing-subscriber = "0.3.23"
+vello = "0.11.0"
+vello_cpu = "0.3.0"
+vello_gpu = "0.3.0"
+vello_common = "0.3.0"
 wgpu = { workspace = true }
 wgpu_context = { workspace = true }
 rustc-hash = { workspace = true }

@@ -110,7 +110,7 @@ web-time = { workspace = true }
 # HACK: Apace doesn't need to depend on objc2 directly. But this feature flag is necessary
 # to prevent debug builds from panicking.
 [target.'cfg(any(target_vendor = "apple"))'.dependencies]
-objc2 = { version = "0.6", features = ["disable-encoding-assertions"] }
+objc2 = { version = "0.6.5", features = ["disable-encoding-assertions"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dev-dependencies]
 # Keep standalone engine tests on the same runtime-loaded Fontconfig path as

@@ -5,6 +5,8 @@ edition = "2024"
 license.workspace = true
 publish = false
 
+rust-version = "1.95"
+
 [[bin]]
 name = "apace"
 path = "src/main.rs"
@@ -63,7 +65,7 @@ webbrowser = { workspace = true }
 wingy = { workspace = true }
 image = { workspace = true, features = ["ico"] }
 usvg = { workspace = true }
-nucleo = "0.5"
+nucleo = "0.5.0"
 anyrender = { workspace = true }
 anyrender_serialize = { workspace = true, optional = true }
 anyrender_vello_cpu = { workspace = true, optional = true }
@@ -74,10 +76,10 @@ peniko = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["time", "rt", "sync", "macros"] }
 
 # Allocators
-mimalloc = { version = "0.1.48", optional = true }
+mimalloc = { version = "0.1.52", optional = true }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 rfd = { workspace = true, features = ["xdg-portal"], optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android-activity = { version = "0.6.0", features = ["native-activity"] }
+android-activity = { version = "0.6.1", features = ["native-activity"] }

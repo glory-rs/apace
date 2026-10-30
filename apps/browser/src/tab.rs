@@ -161,7 +161,7 @@ fn commit_loaded_document<Lens>(
         let Some(resolved) = probe_favicon_cached(candidate, &net_provider).await else {
             return;
         };
-        // A → B → A: the probe for the first A may resolve while a second A
+        // A â†’ B â†’ A: the probe for the first A may resolve while a second A
         // entry already exists (non-consecutive revisits don't fold). The
         // URL check passes (URL is A again), but `entry_id` points at the
         // *first* A entry. The service patches the in-memory row by id and
@@ -323,9 +323,10 @@ mod tests {
             };
             let mut initial = props();
             let captured_tab = initial.tabs.iter().next().unwrap();
-            let replacement = props();
-            initial.memoize(&replacement);
-            drop(replacement);
+            {
+                let replacement = props();
+                initial.memoize(&replacement);
+            }
 
             // Resources and favicon tasks retain the lens across parent renders.
             assert_eq!(

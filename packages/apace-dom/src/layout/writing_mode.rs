@@ -10,7 +10,7 @@
 //!   [`LayoutPassState::layout_wm`] tracks the writing mode of the running algorithm.
 //! - Orthogonal flows ([`compute_child_layout_in_own_wm`]): when a box's writing mode differs from its
 //!   parent's, the `LayoutInput` is transposed into the box's axes, its auto inline size is
-//!   resolved to fit-content (css-writing-modes-3 §7.3.1), and the `LayoutOutput` is transposed
+//!   resolved to fit-content (css-writing-modes-3 Ã‚Â§7.3.1), and the `LayoutOutput` is transposed
 //!   back. Percentage padding on such a box resolves against the containing block's inline size
 //!   ([`LayoutPassState::orthogonal_percent_basis`]).
 //! - Geometry: `unrounded_layout` is written by the placing algorithm in *its* writing mode.
@@ -33,7 +33,7 @@ use takia::{
 
 impl BaseDocument {
     /// The writing mode in which the root element's layout algorithm runs: the HTML special case of
-    /// css-writing-modes-3 §8 uses the `writing-mode` of its `<body>` child instead of its own.
+    /// css-writing-modes-3 Ã‚Â§8 uses the `writing-mode` of its `<body>` child instead of its own.
     pub(crate) fn root_layout_wm(&self, root_id: crate::NodeId) -> WritingMode {
         let root = &self.nodes[root_id];
         let wm = root.writing_mode();
@@ -173,7 +173,7 @@ impl LayoutPassState<'_> {
                     .width
                     .is_auto();
             if inline_size_is_auto {
-                // css-writing-modes-3 §7.3.1: an auto inline size in an orthogonal flow is
+                // css-writing-modes-3 Ã‚Â§7.3.1: an auto inline size in an orthogonal flow is
                 // fit-content against the available space in that axis: the containing block's
                 // block size if definite, else the initial containing block (nearest fixed-size
                 // scroll container not implemented).
@@ -406,72 +406,6 @@ fn mirror_overflow(
     takia::ScrollableOverflow::new(rect, reversed)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn mirrored_overflow_preserves_both_sides_and_scroll_container_flags() {
-        for is_scroll_container in [false, true] {
-            let original = takia::ScrollableOverflow::new(
-                takia::Rect {
-                    left: -96.0,
-                    right: 204.0,
-                    top: -20.0,
-                    bottom: 150.0,
-                },
-                Point { x: false, y: false },
-            );
-            let size = Size {
-                width: 100.0,
-                height: 80.0,
-            };
-            let axes = Point { x: true, y: true };
-            let mirrored = mirror_overflow(original, size, axes, is_scroll_container);
-            assert_eq!(
-                mirrored.rect(),
-                takia::Rect {
-                    left: -104.0,
-                    right: 196.0,
-                    top: -70.0,
-                    bottom: 100.0
-                }
-            );
-            assert_eq!(
-                mirrored.is_reversed(),
-                Point {
-                    x: is_scroll_container,
-                    y: is_scroll_container
-                }
-            );
-            assert_eq!(
-                mirror_overflow(mirrored, size, axes, is_scroll_container),
-                original
-            );
-        }
-    }
-
-    #[test]
-    fn empty_overflow_remains_without_scrollable_extent_when_mirrored() {
-        let size = Size {
-            width: 100.0,
-            height: 80.0,
-        };
-        let overflow = mirror_overflow(
-            takia::ScrollableOverflow::ZERO,
-            size,
-            Point { x: true, y: true },
-            true,
-        );
-        let layout = Layout {
-            size,
-            scrollable_overflow_rect: overflow,
-            ..Layout::new()
-        };
-        assert_eq!((layout.scroll_width(), layout.scroll_height()), (0.0, 0.0));
-    }
-}
-
 /// `logical`, written by a placing algorithm running in `placer_wm` within a box of physical size
 /// `placer_size`, in physical coordinates.
 fn physical_layout(
@@ -610,5 +544,71 @@ impl BaseDocument {
         pos.x += location.x - placer.scroll_offset().x as f32;
         pos.y += location.y - placer.scroll_offset().y as f32;
         (pos, placer.layout_data().writing_mode, size)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mirrored_overflow_preserves_both_sides_and_scroll_container_flags() {
+        for is_scroll_container in [false, true] {
+            let original = takia::ScrollableOverflow::new(
+                takia::Rect {
+                    left: -96.0,
+                    right: 204.0,
+                    top: -20.0,
+                    bottom: 150.0,
+                },
+                Point { x: false, y: false },
+            );
+            let size = Size {
+                width: 100.0,
+                height: 80.0,
+            };
+            let axes = Point { x: true, y: true };
+            let mirrored = mirror_overflow(original, size, axes, is_scroll_container);
+            assert_eq!(
+                mirrored.rect(),
+                takia::Rect {
+                    left: -104.0,
+                    right: 196.0,
+                    top: -70.0,
+                    bottom: 100.0
+                }
+            );
+            assert_eq!(
+                mirrored.is_reversed(),
+                Point {
+                    x: is_scroll_container,
+                    y: is_scroll_container
+                }
+            );
+            assert_eq!(
+                mirror_overflow(mirrored, size, axes, is_scroll_container),
+                original
+            );
+        }
+    }
+
+    #[test]
+    fn empty_overflow_remains_without_scrollable_extent_when_mirrored() {
+        let size = Size {
+            width: 100.0,
+            height: 80.0,
+        };
+        let overflow = mirror_overflow(
+            takia::ScrollableOverflow::ZERO,
+            size,
+            Point { x: true, y: true },
+            true,
+        );
+        let layout = Layout {
+            size,
+            scrollable_overflow_rect: overflow,
+            ..Layout::new()
+        };
+        assert_eq!((layout.scroll_width(), layout.scroll_height()), (0.0, 0.0));
     }
 }

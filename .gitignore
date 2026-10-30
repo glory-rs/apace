@@ -11,3 +11,6 @@
 /apps/wpt/output
 /sites
 .apace-cache
+
+# Library, example and benchmark resolutions are generated locally.
+**/Cargo.lock

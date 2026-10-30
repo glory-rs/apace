@@ -10,6 +10,8 @@ repository = "https://github.com/DioxusLabs/dioxus/"
 homepage = "https://dioxuslabs.com/learn/0.7/getting_started"
 keywords = ["dom", "ui", "gui", "react"]
 
+rust-version = "1.95"
+
 [features]
 default = ["accessibility", "svg", "system-fonts", "text-transform-icu"]
 

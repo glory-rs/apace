@@ -12,7 +12,7 @@ gpu = ["dep:anyrender_vello"]
 cpu = ["dep:anyrender_vello_cpu"]
 
 [dependencies]
-mimalloc = "0.1.48"
+mimalloc = "0.1.52"
 apace-dom = { workspace = true, features = ["svg", "floats", "system-fonts", "woff", "complex-scripts", "text-transform-icu", "writing-mode"] }
 apace-html = {workspace = true }
 apace-vibey-script = { workspace = true }
@@ -27,30 +27,30 @@ style = { workspace = true }
 style_traits = { workspace = true }
 markup5ever = { workspace = true }
 html5ever = { workspace = true }
-roxmltree = "0.21"
+roxmltree = "0.21.2"
 parley = { workspace = true }
 peniko = { workspace = true }
 image = { workspace = true, features = ["png"] }
 url = { workspace = true }
 data-url = { workspace = true }
-png = { version = "0.17" }
-glob = { version = "0.3.1" }
+png = { version = "0.18.1" }
+glob = { version = "0.3.4" }
 html-escape = { workspace = true }
-dify = { version = "0.7.4", default-features = false }
-env_logger = { version = "0.11.5" }
-owo-colors = "4.1.0"
-log = "0.4.22"
-regex = "1.11.1"
+dify = { version = "0.8.0", default-features = false }
+env_logger = { version = "0.11.11" }
+owo-colors = "4.4.0"
+log = "0.4.34"
+regex = "1.13.1"
 rayon = { workspace = true }
 thread_local = { workspace = true }
-bitflags = "2.6.0"
-pollster = "0.4.0"
-atomic_float = "1"
-supports-hyperlinks = "3.1.0"
+bitflags = "2.13.2"
+pollster = "1.0.1"
+atomic_float = "1.1.0"
+supports-hyperlinks = "3.2.0"
 terminal-link = "0.1.0"
-wptreport = { version = "0.0.5", default-features = false }
-os_info = "3.10.0"
-serde_json = "1.0.140"
+wptreport = { version = "0.1.1", default-features = false }
+os_info = "3.15.0"
+serde_json = "1.0.154"
 
 [dev-dependencies]
-tempfile = "3"
+tempfile = "3.27.0"

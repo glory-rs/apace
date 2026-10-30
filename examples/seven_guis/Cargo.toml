@@ -5,6 +5,8 @@ edition = "2024"
 license.workspace = true
 publish = false
 
+rust-version = "1.95"
+
 [[bin]]
 name = "seven_guis_native"
 path = "src/main.rs"
@@ -20,11 +22,11 @@ skia = ["dioxus-native/skia"]
 
 [dependencies]
 dioxus-native = { workspace = true, features = ["prelude"] }
-futures-timer = "3"
+futures-timer = "3.0.4"
 
 # Disable unicode URL support
 # See https://github.com/hsivonen/idna_adapter
-idna_adapter = "=1.0.0"
+idna_adapter = "=1.2.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Native: pull in system fonts (wasm bundles DejaVu instead).
@@ -32,7 +34,7 @@ dioxus-native = { workspace = true, features = ["system-fonts"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # WASM-only: additive wasm-bindgen feature on futures-timer
-futures-timer = { version = "3", features = ["wasm-bindgen"] }
+futures-timer = { version = "3.0.4", features = ["wasm-bindgen"] }
 anyrender_vello_hybrid = { workspace = true, features = ["webgl"] }
 dioxus-native = { workspace = true, features = ["woff"] }
 wasm-bindgen = { workspace = true }
