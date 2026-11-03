@@ -15,7 +15,7 @@ original library are not represented as users of this renamed fork.
 
 ```toml
 [dependencies]
-apace = "=0.3.0-beta.4"
+apace = "=0.3.0"
 ```
 
 The published family includes `apace`, `apace-dom`, `apace-traits`, `apace-paint`, `apace-html`, `apace-net`, `apace-shell`, `stylo_takia` and the namespaced support crates. Additional Dioxus integrations and browser/WPT tools remain development-only.
@@ -25,7 +25,7 @@ The published family includes `apace`, `apace-dom`, `apace-traits`, `apace-paint
 - `main` contains this project's maintained implementation, namespace and release tooling.
 - `upstream-main` mirrors the upstream default branch exactly. Its scheduled/manual sync never updates `main`.
 - Upstream changes are reviewed before integration into maintained `main`.
-- Release tags use `apace-v0.3.0-beta.4`, preserving inherited upstream tags.
+- Release tags use the `apace-v` prefix, for example `apace-v0.3.0`, preserving inherited upstream tags.
 
 See [UPSTREAM.md](UPSTREAM.md) for provenance and [RELEASING.md](RELEASING.md) for
 the explicit dependency order, checks and publication procedure. Supported platform

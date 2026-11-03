@@ -23,10 +23,10 @@ upstream's brush override without sharing editable text or geometry.
 
 Takia is pinned to `c79a14b54ea632462a15624acf9e7daf792bcd13` and Wingy to
 `b80608744193df808d71dd9eaf9ff02627351f03`. Push those dependency commits before
-pushing this integration. Stylo matches upstream's fixed Git revision
-`78734bf554bb40af9dc11c0eedbe724f6055697c` and Dioxus is `0.8.0-alpha.3`.
-No new registry release is implied. The existing publication validator still
-rejects Git dependencies; normal source CI and release-tag checks are separate.
+pushing this integration. Stylo uses the registry release `0.23.0`, including the
+formerly forked text-fill support, and Dioxus is `0.8.0-alpha.3`. No new registry
+release is implied. The existing publication validator still rejects Git dependencies;
+normal source CI and release-tag checks are separate.
 
 Validation on Windows/Rust 1.98:
 

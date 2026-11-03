@@ -17,5 +17,9 @@
     "apace-net",
     "apace-shell",
     "apace"
-  ]
+  ],
+  "external_path_dependencies": {
+    "takia": "=0.15.1",
+    "wingy": "=0.31.1"
+  }
 }
