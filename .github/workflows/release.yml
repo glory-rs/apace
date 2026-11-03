@@ -2,16 +2,52 @@ name: Release
 on:
   push:
     tags: ['apace-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing immutable release tag to validate and publish
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
   group: apace-release
   cancel-in-progress: false
 jobs:
+  resolve:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    outputs:
+      product_commit: ${{ steps.freeze.outputs.product_commit }}
+      tag: ${{ steps.freeze.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Freeze the release tag before validation
+        id: freeze
+        shell: pwsh
+        env:
+          REQUESTED_TAG: ${{ inputs.tag || github.ref_name }}
+          EVENT_COMMIT: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          git check-ref-format "refs/tags/$env:REQUESTED_TAG"
+          if ($LASTEXITCODE) { throw 'Invalid release tag' }
+          $commit = git rev-parse --verify "refs/tags/$env:REQUESTED_TAG^{commit}"
+          if ($LASTEXITCODE -or $commit -notmatch '^[a-f0-9]{40}$') { throw 'Release tag must identify an existing commit' }
+          if ($env:EVENT_NAME -eq 'push' -and $commit -ne $env:EVENT_COMMIT) { throw 'Release tag moved after the push event' }
+          "product_commit=$commit" >> $env:GITHUB_OUTPUT
+          "tag=$env:REQUESTED_TAG" >> $env:GITHUB_OUTPUT
   checks:
+    needs: resolve
     uses: ./.github/workflows/ci.yml
+    with:
+      release_ref: ${{ needs.resolve.outputs.product_commit }}
   publish:
-    needs: checks
+    needs: [resolve, checks]
     runs-on: windows-latest
     timeout-minutes: 360
     permissions:
@@ -29,6 +65,7 @@ jobs:
       CARGO_BUILD_JOBS: '2'
       CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
       GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
     defaults:
       run:
         shell: pwsh
@@ -36,6 +73,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+          ref: ${{ needs.resolve.outputs.product_commit }}
+      - name: Check out coordinated development engines
+        shell: bash
+        run: |
+          if [ ! -d ../takia/.git ]; then git clone --depth 1 https://github.com/glory-rs/takia ../takia; fi
+          if [ ! -d ../wingy/.git ]; then git clone --depth 1 https://github.com/glory-rs/wingy ../wingy; fi
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.13'
@@ -47,5 +90,5 @@ jobs:
           rustup default 1.98.0
       - name: Publish verified packages and GitHub release
         run: |
-          python scripts/release.py --publish --tag $env:GITHUB_REF_NAME
+          python scripts/release.py --publish --tag $env:RELEASE_TAG
           if ($LASTEXITCODE) { throw 'Release failed' }

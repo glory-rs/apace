@@ -4,6 +4,11 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+    inputs:
+      release_ref:
+        required: false
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -31,6 +36,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+          ref: ${{ inputs.release_ref || github.sha }}
       - name: Check out coordinated development engines
         shell: bash
         run: |
