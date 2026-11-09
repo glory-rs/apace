@@ -49,9 +49,7 @@ class PublicationRetryTests(unittest.TestCase):
 
 class ReleasePlanTests(unittest.TestCase):
     def validate(self, mutate=lambda plan, packages: None, tag=None):
-        parent=Path(os.environ.get('CARGO_TARGET_DIR','D:/BuildCache/release-tests/target')).parent
-        parent.mkdir(parents=True,exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix='publisher-test-',dir=parent) as directory:
+        with tempfile.TemporaryDirectory(prefix='publisher-test-') as directory:
             root=Path(directory)
             target=root/'target'
             (root/'Cargo.toml').write_text('[workspace.package]\nversion="0.6.0"\n[package]\nversion="0.0.1"\n',encoding='utf-8')
@@ -61,10 +59,10 @@ class ReleasePlanTests(unittest.TestCase):
                        'manifest_path':str(root/'Cargo.toml')} for name in plan['packages']]
             mutate(plan,packages)
             (root/'release.json').write_text(json.dumps(plan),encoding='utf-8')
-            metadata=json.dumps({'target_directory':str(target),'packages':packages})
+            metadata=json.dumps({'workspace_root':str(root),'target_directory':str(target),'packages':packages})
             arguments=['release.py']+(['--tag',tag] if tag else [])
             with patch.object(publisher,'ROOT',root),patch.object(publisher,'run',return_value=metadata), \
-                 patch.object(publisher.sys,'argv',arguments),patch.dict(os.environ,{'CARGO_TARGET_DIR':str(target),'GITHUB_REF_TYPE':'branch','GITHUB_REF_NAME':'main'}), \
+                 patch.object(publisher.sys,'argv',arguments),patch.dict(os.environ,{'GITHUB_REF_TYPE':'branch','GITHUB_REF_NAME':'main'}), \
                  contextlib.redirect_stdout(io.StringIO()) as output:
                 publisher.main()
                 return output.getvalue()
@@ -104,12 +102,35 @@ class ReleasePlanTests(unittest.TestCase):
             packages[1]['dependencies']=[{'name':'foreign','req':'=0.6.0','kind':None,'source':None,'path':'D:/published'}]
         self.assertIn('v0.6.0',self.validate(mutation))
 
+    def test_extra_workspace_archive_uses_its_metadata_target_and_working_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            extra = root / 'example'
+            extra.mkdir()
+            (root / 'Cargo.toml').write_text('[package]\nversion="0.6.0"\n')
+            (root / 'release.json').write_text(json.dumps({
+                'repository': 'example/owned', 'allowed_prefixes': ['owned'],
+                'packages': ['owned-extra'], 'extra_manifests': ['example/Cargo.toml']}))
+            package = {'name': 'owned-extra', 'version': '0.6.0',
+                       'repository': 'https://github.com/example/owned', 'dependencies': [],
+                       'manifest_path': str(extra / 'Cargo.toml')}
+            metadata = [json.dumps({'workspace_root': str(root), 'target_directory': str(root / 'target'), 'packages': []}),
+                        json.dumps({'workspace_root': str(extra), 'target_directory': str(extra / 'configured-target'), 'packages': [package]})]
+            with patch.object(publisher, 'ROOT', root), \
+                 patch.object(publisher, 'run', side_effect=[*metadata, None, 'a'*40]) as command, \
+                 patch.object(publisher, 'validate_archive') as archive, \
+                 patch.object(publisher.sys, 'argv', ['release.py', '--check-package', 'owned-extra']), \
+                 patch.dict(os.environ, {'GITHUB_REF_TYPE': 'branch'}), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                publisher.main()
+            self.assertEqual(command.call_args_list[1].kwargs['cwd'], extra)
+            self.assertEqual(command.call_args_list[2].kwargs['cwd'], extra)
+            archive.assert_called_once_with(extra / 'configured-target' / 'package' / 'owned-extra-0.6.0.crate', 'a'*40)
+
 
 class ArchiveTests(unittest.TestCase):
     def inspect(self, license_content, sha='a'*40, dirty=False):
-        parent=Path(os.environ.get('CARGO_TARGET_DIR','D:/BuildCache/release-tests/target')).parent
-        parent.mkdir(parents=True,exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix='archive-test-',dir=parent) as directory:
+        with tempfile.TemporaryDirectory(prefix='archive-test-') as directory:
             archive=Path(directory)/'test.crate'
             with tarfile.open(archive,'w:gz') as output:
                 for name,data in [('pkg/.cargo_vcs_info.json',json.dumps({'git':{'sha1':sha,'dirty':dirty}}).encode()),

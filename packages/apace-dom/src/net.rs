@@ -8,8 +8,8 @@ use style::{
     shared_lock::SharedRwLock,
     shared_lock::{Locked, SharedRwLockReadGuard},
     stylesheets::{
-        AllowImportRules, CssRule, DocumentStyleSheet, ImportRule, Origin, Stylesheet,
-        StylesheetInDocument, StylesheetLoader as ServoStylesheetLoader, UrlExtraData,
+        CssRule, DocumentStyleSheet, ImportRule, Origin, Stylesheet, StylesheetInDocument,
+        StylesheetLoader as ServoStylesheetLoader, UrlExtraData,
         import_rule::{ImportLayer, ImportSheet, ImportSupportsCondition},
     },
     values::{CssUrl, SourceLocation},
@@ -247,10 +247,6 @@ impl NetHandler for ResourceHandler<StylesheetHandler> {
         if let Err(error) = self.admit(&bytes) {
             return self.respond(resolved_url, Err(error));
         }
-        let Ok(css) = std::str::from_utf8(&bytes) else {
-            return self.respond(resolved_url, Err(String::from("Invalid UTF8")));
-        };
-
         let Ok(source_url) = Url::parse(&resolved_url) else {
             return self.respond(resolved_url, Err(String::from("Invalid stylesheet URL")));
         };
@@ -258,9 +254,11 @@ impl NetHandler for ResourceHandler<StylesheetHandler> {
         // NOTE(Nico): I don't *think* external stylesheets should have HTML entities escaped
         // let escaped_css = html_escape::decode_html_entities(css);
 
-        let sheet = Stylesheet::from_str(
-            css,
+        let sheet = Stylesheet::from_bytes(
+            &bytes,
             source_url.into(),
+            None,
+            None,
             Origin::Author,
             ServoArc::new(self.data.guard.wrap(MediaList::empty())),
             self.data.guard.clone(),
@@ -274,7 +272,6 @@ impl NetHandler for ResourceHandler<StylesheetHandler> {
             }),
             None, // error_reporter
             QuirksMode::NoQuirks,
-            AllowImportRules::Yes,
         );
 
         self.respond(
@@ -382,10 +379,6 @@ impl NetHandler for ResourceHandler<NestedStylesheetHandler> {
         if let Err(error) = self.admit(&bytes) {
             return self.respond(resolved_url, Err(error));
         }
-        let Ok(css) = std::str::from_utf8(&bytes) else {
-            return self.respond(resolved_url, Err(String::from("Invalid UTF8")));
-        };
-
         let Ok(source_url) = Url::parse(&resolved_url) else {
             return self.respond(resolved_url, Err(String::from("Invalid stylesheet URL")));
         };
@@ -393,16 +386,17 @@ impl NetHandler for ResourceHandler<NestedStylesheetHandler> {
         // NOTE(Nico): I don't *think* external stylesheets should have HTML entities escaped
         // let escaped_css = html_escape::decode_html_entities(css);
 
-        let sheet = ServoArc::new(Stylesheet::from_str(
-            css,
+        let sheet = ServoArc::new(Stylesheet::from_bytes(
+            &bytes,
             UrlExtraData(ServoArc::new(source_url)),
+            None,
+            None,
             Origin::Author,
             self.data.media.clone(),
             self.data.lock.clone(),
             Some(&self.data.loader),
             None, // error_reporter
             QuirksMode::NoQuirks,
-            AllowImportRules::Yes,
         ));
 
         // Fetch @font-face fonts
@@ -827,8 +821,54 @@ impl ImageHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cssparser::ToCss;
     use parley::fontique::FontStyle as Fq;
     use style::values::specified::Angle;
+
+    #[test]
+    fn external_stylesheets_decode_bom_and_legacy_charset() {
+        for (bytes, selector) in [
+            (b"\xef\xbb\xbf#target { color: red; }".as_slice(), "#target"),
+            (
+                b"@charset \"windows-1252\"; .caf\xe9 { color: red; }".as_slice(),
+                ".caf\u{e9}",
+            ),
+        ] {
+            let doc = crate::BaseDocument::new(Default::default());
+            let handler = ResourceHandler::new(
+                doc.tx.clone(),
+                doc.id(),
+                None,
+                doc.shell_provider.clone(),
+                StylesheetHandler {
+                    guard: doc.guard.clone(),
+                    net_provider: doc.net_provider.clone(),
+                    abort_signal: None,
+                },
+            )
+            .unwrap();
+            Box::new(handler).bytes(
+                "https://example.com/style.css".into(),
+                Bytes::copy_from_slice(bytes),
+            );
+            let DocumentEvent::ResourceLoad(response) =
+                doc.rx.as_ref().unwrap().try_recv().unwrap()
+            else {
+                panic!("expected stylesheet response")
+            };
+            let Resource::Css(sheet) = response.result.as_ref().expect("decoded stylesheet") else {
+                panic!("expected stylesheet")
+            };
+            let guard = doc.guard.read();
+            let contents = sheet.0.contents.read_with(&guard);
+            let rules = contents.rules(&guard);
+            assert_eq!(rules.len(), 1);
+            let CssRule::Style(rule) = &rules[0] else {
+                panic!("expected style rule")
+            };
+            assert_eq!(rule.read_with(&guard).selectors.to_css_string(), selector);
+        }
+    }
 
     #[test]
     fn response_diagnostics_are_bounded_utf8_and_do_not_retain_large_capacities() {

@@ -17,12 +17,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 90
     env:
-      CARGO_HOME: D:/BuildCache/apace/cargo
-      CARGO_TARGET_DIR: D:/BuildCache/apace/target
-      RUSTUP_HOME: D:/BuildCache/apace/rustup
-      TEMP: D:/BuildCache/apace/tmp
-      TMP: D:/BuildCache/apace/tmp
-      PYTHONPYCACHEPREFIX: D:/BuildCache/apace/pycache
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
@@ -47,7 +41,6 @@ jobs:
           python-version: '3.13'
       - name: Prepare compiler and storage
         run: |
-          New-Item -ItemType Directory -Force $env:CARGO_HOME,$env:CARGO_TARGET_DIR,$env:RUSTUP_HOME,$env:TEMP | Out-Null
           rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy
           if ($LASTEXITCODE) { throw 'Toolchain installation failed' }
           rustup default 1.95.0
@@ -55,7 +48,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'Library dependency resolution failed' }
       - name: Validate source
         run: |
-          python -m unittest discover -s scripts -p test_release.py
+          python -m unittest discover -s scripts -p "test_*.py"
           if ($LASTEXITCODE) { throw 'Release tooling tests failed' }
           cargo fmt --all -- --check
           if ($LASTEXITCODE) { throw 'Formatting failed' }
@@ -71,6 +64,8 @@ jobs:
           if ($LASTEXITCODE) { throw 'Archive contents failed' }
       - name: Tests and compilation
         run: |
+          cargo check --locked -p apace-net --features cache,multipart
+          if ($LASTEXITCODE) { throw 'Cached multipart networking failed' }
           cargo test --locked -p apace-dom --no-default-features --features system-fonts,complex-scripts --lib
           if ($LASTEXITCODE) { throw 'Validation failed' }
           cargo test --locked -p apace-shell --no-default-features --lib
