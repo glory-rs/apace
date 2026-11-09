@@ -64,6 +64,8 @@ jobs:
           if ($LASTEXITCODE) { throw 'Archive contents failed' }
       - name: Tests and compilation
         run: |
+          cargo check --locked -p apace-net --features cache,multipart
+          if ($LASTEXITCODE) { throw 'Cached multipart networking failed' }
           cargo test --locked -p apace-dom --no-default-features --features system-fonts,complex-scripts --lib
           if ($LASTEXITCODE) { throw 'Validation failed' }
           cargo test --locked -p apace-shell --no-default-features --lib
