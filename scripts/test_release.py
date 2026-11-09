@@ -49,9 +49,7 @@ class PublicationRetryTests(unittest.TestCase):
 
 class ReleasePlanTests(unittest.TestCase):
     def validate(self, mutate=lambda plan, packages: None, tag=None):
-        parent=Path(os.environ.get('CARGO_TARGET_DIR','D:/BuildCache/release-tests/target')).parent
-        parent.mkdir(parents=True,exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix='publisher-test-',dir=parent) as directory:
+        with tempfile.TemporaryDirectory(prefix='publisher-test-') as directory:
             root=Path(directory)
             target=root/'target'
             (root/'Cargo.toml').write_text('[workspace.package]\nversion="0.6.0"\n[package]\nversion="0.0.1"\n',encoding='utf-8')
@@ -64,7 +62,7 @@ class ReleasePlanTests(unittest.TestCase):
             metadata=json.dumps({'target_directory':str(target),'packages':packages})
             arguments=['release.py']+(['--tag',tag] if tag else [])
             with patch.object(publisher,'ROOT',root),patch.object(publisher,'run',return_value=metadata), \
-                 patch.object(publisher.sys,'argv',arguments),patch.dict(os.environ,{'CARGO_TARGET_DIR':str(target),'GITHUB_REF_TYPE':'branch','GITHUB_REF_NAME':'main'}), \
+                 patch.object(publisher.sys,'argv',arguments),patch.dict(os.environ,{'GITHUB_REF_TYPE':'branch','GITHUB_REF_NAME':'main'}), \
                  contextlib.redirect_stdout(io.StringIO()) as output:
                 publisher.main()
                 return output.getvalue()
@@ -107,9 +105,7 @@ class ReleasePlanTests(unittest.TestCase):
 
 class ArchiveTests(unittest.TestCase):
     def inspect(self, license_content, sha='a'*40, dirty=False):
-        parent=Path(os.environ.get('CARGO_TARGET_DIR','D:/BuildCache/release-tests/target')).parent
-        parent.mkdir(parents=True,exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix='archive-test-',dir=parent) as directory:
+        with tempfile.TemporaryDirectory(prefix='archive-test-') as directory:
             archive=Path(directory)/'test.crate'
             with tarfile.open(archive,'w:gz') as output:
                 for name,data in [('pkg/.cargo_vcs_info.json',json.dumps({'git':{'sha1':sha,'dirty':dirty}}).encode()),
