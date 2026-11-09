@@ -28,6 +28,7 @@ class LibraryLockfileTests(unittest.TestCase):
             self.assertEqual(generate.call_count, 2)
             self.assertEqual({call.args[0][-1] for call in generate.call_args_list},
                              {str(root / 'Cargo.toml'), str(example / 'Cargo.toml')})
+            self.assertEqual({call.kwargs['cwd'] for call in generate.call_args_list}, {root, example})
 
 
 if __name__ == '__main__':
