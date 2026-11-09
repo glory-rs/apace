@@ -14,7 +14,7 @@ spec.loader.exec_module(lockfiles)
 class LibraryLockfileTests(unittest.TestCase):
     def test_independent_workspace_targets_do_not_require_an_environment_override(self):
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve()
             example = root / 'example'
             example.mkdir()
             (root / 'Cargo.toml').write_text('[workspace]\nexclude=["example"]\n')
