@@ -1,4 +1,8 @@
 """Publication retry tests; no network, credentials or registry mutations."""
+from pathlib import Path as _BuildPath
+import sys as _build_sys
+_build_sys.path.insert(0, str(_BuildPath(__file__).resolve().parents[1] / "scripts"))
+from local_build_paths import local_build_path
 import contextlib
 import importlib.util
 import io
@@ -49,7 +53,9 @@ class PublicationRetryTests(unittest.TestCase):
 
 class ReleasePlanTests(unittest.TestCase):
     def validate(self, mutate=lambda plan, packages: None, tag=None):
-        with tempfile.TemporaryDirectory(prefix='publisher-test-') as directory:
+        parent=Path(os.environ.get('CARGO_TARGET_DIR',local_build_path('release-tests/target'))).parent
+        parent.mkdir(parents=True,exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='publisher-test-',dir=parent) as directory:
             root=Path(directory)
             target=root/'target'
             (root/'Cargo.toml').write_text('[workspace.package]\nversion="0.6.0"\n[package]\nversion="0.0.1"\n',encoding='utf-8')
@@ -130,7 +136,9 @@ class ReleasePlanTests(unittest.TestCase):
 
 class ArchiveTests(unittest.TestCase):
     def inspect(self, license_content, sha='a'*40, dirty=False):
-        with tempfile.TemporaryDirectory(prefix='archive-test-') as directory:
+        parent=Path(os.environ.get('CARGO_TARGET_DIR',local_build_path('release-tests/target'))).parent
+        parent.mkdir(parents=True,exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='archive-test-',dir=parent) as directory:
             archive=Path(directory)/'test.crate'
             with tarfile.open(archive,'w:gz') as output:
                 for name,data in [('pkg/.cargo_vcs_info.json',json.dumps({'git':{'sha1':sha,'dirty':dirty}}).encode()),
