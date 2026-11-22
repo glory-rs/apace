@@ -9,8 +9,8 @@ use anyrender::WindowRenderer;
 use apace_dom::Document;
 use apace_paint::paint_scene;
 use apace_traits::events::{
-    ApacePointerEvent, ApacePointerId, ApaceWheelDelta, ApaceWheelEvent, MouseEventButton,
-    MouseEventButtons, PointerCoords, PointerDetails, UiEvent,
+    ApacePointerEvent, ApacePointerId, ApaceWheelDelta, ApaceWheelEvent, ApaceWheelPhase,
+    ApaceWheelSource, MouseEventButton, MouseEventButtons, PointerCoords, PointerDetails, UiEvent,
 };
 use apace_traits::shell::Viewport;
 use wingy::dpi::{LogicalPosition, PhysicalInsets, PhysicalPosition, PhysicalSize};
@@ -866,7 +866,7 @@ impl<Rend: WindowRenderer> View<Rend> {
                 self.doc.handle_ui_event(event);
                 self.request_redraw();
             }
-            WindowEvent::MouseWheel { delta, .. } => {
+            WindowEvent::MouseWheel { delta, phase, source, .. } => {
                 let apace_delta = match delta {
                     wingy::event::MouseScrollDelta::LineDelta(x, y) => ApaceWheelDelta::Lines(x as f64, y as f64),
                     wingy::event::MouseScrollDelta::PixelDelta(pos) => ApaceWheelDelta::Pixels(pos.x, pos.y),
@@ -879,6 +879,18 @@ impl<Rend: WindowRenderer> View<Rend> {
 
                 let event = ApaceWheelEvent {
                     delta: apace_delta,
+                    phase: match phase {
+                        wingy::event::TouchPhase::Started => ApaceWheelPhase::Started,
+                        wingy::event::TouchPhase::Moved => ApaceWheelPhase::Moved,
+                        wingy::event::TouchPhase::Ended => ApaceWheelPhase::Ended,
+                        wingy::event::TouchPhase::Cancelled => ApaceWheelPhase::Cancelled,
+                    },
+                    source: match source {
+                        wingy::event::ScrollSource::Wheel => ApaceWheelSource::Wheel,
+                        wingy::event::ScrollSource::Finger => ApaceWheelSource::Finger,
+                        wingy::event::ScrollSource::Momentum => ApaceWheelSource::Momentum,
+                        _ => ApaceWheelSource::Unknown,
+                    },
                     coords: self.pointer_coords(self.pointer_pos),
                     buttons: self.buttons,
                     mods: wingy_modifiers_to_kbt_modifiers(self.keyboard_modifiers.state()),

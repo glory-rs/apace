@@ -6,8 +6,8 @@ use web_time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use apace_traits::{
     events::{
-        ApaceInputEvent, ApacePointerEvent, ApacePointerId, ApaceWheelDelta, ApaceWheelEvent,
-        DomEvent, DomEventData, MouseEventButton, MouseEventButtons,
+        ApaceInputEvent, ApacePointerEvent, ApacePointerId, DomEvent, DomEventData,
+        MouseEventButton, MouseEventButtons,
     },
     navigation::NavigationOptions,
 };
@@ -835,28 +835,6 @@ pub(crate) fn handle_click(
             target,
             DomEventData::DoubleClick(double_click_event),
         ));
-    }
-}
-
-pub(crate) fn handle_wheel<F: FnMut(DomEvent)>(
-    doc: &mut BaseDocument,
-    _: NodeId,
-    event: ApaceWheelEvent,
-    mut dispatch_event: F,
-) {
-    let (scroll_x, scroll_y) = match event.delta {
-        ApaceWheelDelta::Lines(x, y) => (x * 20.0, y * 20.0),
-        ApaceWheelDelta::Pixels(x, y) => (x, y),
-    };
-
-    let has_changed = doc.scroll_chain_by(
-        doc.get_hover_node_id(),
-        scroll_x,
-        scroll_y,
-        &mut dispatch_event,
-    );
-    if has_changed {
-        doc.shell_provider.request_redraw();
     }
 }
 

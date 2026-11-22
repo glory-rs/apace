@@ -4,7 +4,7 @@ use apace_dom::{
 };
 use apace_traits::events::{
     ApaceKeyEvent, ApacePointerEvent, ApacePointerId, ApaceScrollEvent, ApaceWheelDelta,
-    ApaceWheelEvent, MouseEventButton,
+    ApaceWheelEvent, ApaceWheelPhase, ApaceWheelSource, MouseEventButton,
 };
 use dioxus_html::{
     AnimationData, BeforeInputData, CancelData, ClipboardData, CompositionData, DragData,
@@ -602,8 +602,26 @@ impl HasScrollData for NativeScrollData {
     }
 }
 
+/// A wheel event's data, with what Dioxus's [`WheelData`] has no field for. Reach it
+/// from an `onwheel` handler with `let data = event.data();` then
+/// `data.downcast::<NativeWheelData>()`.
 #[derive(Clone)]
 pub struct NativeWheelData(pub(crate) ApaceWheelEvent);
+
+impl NativeWheelData {
+    /// Where the event falls in its gesture, as when the fingers land on or lift from
+    /// a trackpad. [`ApaceWheelPhase::Moved`] on a device that reports no gestures.
+    pub fn phase(&self) -> ApaceWheelPhase {
+        self.0.phase
+    }
+
+    /// What drives the event, such as a trackpad's momentum after the fingers lift.
+    /// [`ApaceWheelSource::Unknown`] where the platform doesn't say.
+    pub fn source(&self) -> ApaceWheelSource {
+        self.0.source
+    }
+}
+
 impl HasWheelData for NativeWheelData {
     fn as_any(&self) -> &dyn Any {
         self as &dyn Any

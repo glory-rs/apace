@@ -575,9 +575,54 @@ pub enum ApaceWheelDelta {
     Pixels(f64, f64),
 }
 
+impl ApaceWheelDelta {
+    /// The delta as `(x, y)` in pixels, counting each line as `line_px` pixels.
+    pub fn to_pixels(&self, line_px: f64) -> (f64, f64) {
+        match *self {
+            Self::Lines(x, y) => (x * line_px, y * line_px),
+            Self::Pixels(x, y) => (x, y),
+        }
+    }
+}
+
+/// Where a [`ApaceWheelEvent`] falls in a scroll gesture.
+///
+/// Devices that report no gestures (most mouse wheels) send every event as
+/// [`ApaceWheelPhase::Moved`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ApaceWheelPhase {
+    /// The fingers touched the trackpad, or momentum scrolling began.
+    Started,
+    /// The gesture moved, or the device reports no gestures.
+    #[default]
+    Moved,
+    /// The fingers left the trackpad, or momentum scrolling stopped.
+    Ended,
+    /// The system cancelled the gesture.
+    Cancelled,
+}
+
+/// What drives a [`ApaceWheelEvent`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ApaceWheelSource {
+    /// The platform doesn't say.
+    #[default]
+    Unknown,
+    /// A physical wheel, usually on a mouse.
+    Wheel,
+    /// Fingers moving on a trackpad.
+    Finger,
+    /// The system continuing a finger scroll after the fingers lifted.
+    Momentum,
+}
+
 #[derive(Clone, Debug)]
 pub struct ApaceWheelEvent {
     pub delta: ApaceWheelDelta,
+    /// Where the event falls in a scroll gesture.
+    pub phase: ApaceWheelPhase,
+    /// What drives the event.
+    pub source: ApaceWheelSource,
     pub coords: PointerCoords,
     pub buttons: MouseEventButtons,
     pub mods: Modifiers,

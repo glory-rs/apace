@@ -3,6 +3,7 @@ mod focus;
 mod ime;
 mod keyboard;
 mod pointer;
+mod wheel;
 
 use crate::util::Point;
 use apace_traits::events::{DomEvent, DomEventData, PointerCoords, UiEvent};
@@ -12,8 +13,11 @@ pub(crate) use ime::handle_ime_event;
 use keyboard::{KeyboardOrTextInputEvent, handle_key_or_input_event};
 pub(crate) use pointer::DragMode;
 use pointer::{handle_click, handle_pointerdown, handle_pointermove, handle_pointerup};
+pub(crate) use wheel::WheelGesture;
 
-use crate::{BaseDocument, events::pointer::handle_wheel};
+use wheel::handle_wheel;
+
+use crate::BaseDocument;
 
 fn adjust_coords_for_subdocument(
     coords: &mut PointerCoords,
@@ -102,8 +106,17 @@ fn map_dom_event_to_ui_event(
 pub(crate) fn handle_dom_event<F: FnMut(DomEvent)>(
     doc: &mut BaseDocument,
     event: &mut DomEvent,
+    default_prevented: bool,
     mut dispatch_event: F,
 ) {
+    if default_prevented {
+        // A scroll gesture has to see each of its events to know where it starts and ends.
+        if let DomEventData::Wheel(data) = &event.data {
+            doc.wheel_gesture.track(data);
+        }
+        return;
+    }
+
     let target_node_id = event.target;
     let node = &mut doc.nodes[target_node_id];
     let pos = node.absolute_position(0.0, 0.0);

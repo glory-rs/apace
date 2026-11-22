@@ -47,6 +47,7 @@ mod interaction_state_teardown;
 mod lang_attribute;
 mod line_break;
 mod link_rel_attribute;
+mod native_wheel_data;
 mod oof_dynamic_cb;
 mod outset_box_shadow_shape;
 mod overscroll_behavior;
@@ -80,6 +81,7 @@ mod touch_events;
 mod transform_2d_subset;
 mod transform_viewport_scale;
 mod ua_stylesheet_order;
+mod wheel_axis_lock;
 mod whitespace_modes;
 
 #[test]
