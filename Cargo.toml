@@ -30,7 +30,7 @@ exclude = ["sites"]
 resolver = "3"
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/glory-rs/apace"
 repository = "https://github.com/glory-rs/apace"
@@ -40,19 +40,19 @@ rust-version = "1.95"
 
 [workspace.dependencies]
 # Apace dependencies(in-repo)
-apace = { version = "=0.3.0", path = "./packages/apace" }
-apace-dom = { version = "=0.3.0", path = "./packages/apace-dom", default-features = false }
-apace-html = { version = "=0.3.0", path = "./packages/apace-html", default-features = false }
-apace-net = { version = "=0.3.0", path = "./packages/apace-net", default-features = false }
-apace-paint = { version = "=0.3.0", path = "./packages/apace-paint", default-features = false }
-apace-vibey-script = { version = "=0.3.0", path = "./packages/apace-vibey-script", default-features = false }
-apace-shell = { version = "=0.3.0", path = "./packages/apace-shell", default-features = false }
-apace-traits = { version = "=0.3.0", path = "./packages/apace-traits", default-features = false }
-stylo_takia = { version = "=0.3.0", path = "./packages/stylo_takia", default-features = false }
+apace = { version = "=0.4.0", path = "./packages/apace" }
+apace-dom = { version = "=0.4.0", path = "./packages/apace-dom", default-features = false }
+apace-html = { version = "=0.4.0", path = "./packages/apace-html", default-features = false }
+apace-net = { version = "=0.4.0", path = "./packages/apace-net", default-features = false }
+apace-paint = { version = "=0.4.0", path = "./packages/apace-paint", default-features = false }
+apace-vibey-script = { version = "=0.4.0", path = "./packages/apace-vibey-script", default-features = false }
+apace-shell = { version = "=0.4.0", path = "./packages/apace-shell", default-features = false }
+apace-traits = { version = "=0.4.0", path = "./packages/apace-traits", default-features = false }
+stylo_takia = { version = "=0.4.0", path = "./packages/stylo_takia", default-features = false }
 dioxus-native = { version = "0.7.0", path = "./packages/dioxus-native", default-features = false }
 dioxus-native-dom = { version = "0.7.0", path = "./packages/dioxus-native-dom", default-features = false }
-apace_debug_timer = { version = "=0.1.4", path = "./packages/apace_debug_timer" }
-apace_accesskit = { version = "=0.2.2", path = "./packages/apace_accesskit", default-features = false }
+apace_debug_timer = { version = "=0.1.5", path = "./packages/apace_debug_timer" }
+apace_accesskit = { version = "=0.2.3", path = "./packages/apace_accesskit", default-features = false }
 browser-persistence = { path = "./apps/browser/persistence" }
 apace-test-harness = { path = "./packages/apace-test-harness" }
 
@@ -97,7 +97,7 @@ dioxus-cli-config = { version = "0.8.0-alpha.3" }
 dioxus-core-macro = { version = "0.8.0-alpha.3" }
 
 # Takia + Parley + Fontations
-takia = { version = "=0.15.1", path = "../takia", default-features = false, features = [
+takia = { version = "=0.16.0", path = "../takia", default-features = false, features = [
     "std",
     "flexbox",
     "flexbox_balance",
@@ -134,7 +134,7 @@ svgtypes = "0.16.1" # Should match usvg's version
 # Windowing & Input
 raw-window-handle = "0.6.2"
 arboard = { version = "3.7.0", default-features = false }
-wingy = { version = "=0.31.1", path = "../wingy/wingy" }
+wingy = { version = "=0.31.2", path = "../wingy/wingy" }
 accesskit = "0.25.2"
 rfd = { version = "0.16.1", default-features = false }
 keyboard-types = "0.8.3"

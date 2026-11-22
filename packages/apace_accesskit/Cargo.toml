@@ -1,6 +1,6 @@
 [package]
 name = "apace_accesskit"
-version = "0.2.2"
+version = "0.2.3"
 license = "Apache-2.0"
 description = "AccessKit UI accessibility infrastructure: cross-platform adapter"
 keywords = ["gui", "ui", "accessibility"]
@@ -31,5 +31,5 @@ accesskit_android = { version = "0.9.1", optional = true, features = ["embedded-
 android-activity = { version = "0.6.1" }
 
 [dev-dependencies]
-wingy-core = { version = "=0.31.1", path = "../../../wingy/wingy-core" }
+wingy-core = { version = "=0.31.2", path = "../../../wingy/wingy-core" }
 raw-window-handle = { version = "0.6.2"}

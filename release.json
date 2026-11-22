@@ -19,7 +19,7 @@
     "apace"
   ],
   "external_path_dependencies": {
-    "takia": "=0.15.1",
-    "wingy": "=0.31.1"
+    "takia": "=0.16.0",
+    "wingy": "=0.31.2"
   }
 }
