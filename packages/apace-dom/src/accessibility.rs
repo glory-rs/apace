@@ -190,7 +190,7 @@ impl ApaceDomNode {
             .map(|s| {
                 s.styles.is_display_none()
                     || s.styles.primary().clone_visibility()
-                        == visibility::computed_value::T::Hidden
+                        != visibility::computed_value::T::Visible
             })
             .unwrap_or(false)
     }
@@ -402,7 +402,12 @@ fn role_from_element_data(element_data: &ElementData) -> Option<Role> {
         "strong" => Some(Role::Strong),
         "mark" => Some(Role::Mark),
         "time" => Some(Role::Time),
-        "img" => Some(Role::Image),
+        // An empty `alt` marks an image as decorative: it's presentational,
+        // as `role="none"` is (https://www.w3.org/TR/html-aam-1.0/#el-img-empty-alt).
+        "img" => match element_data.attr(local_name!("alt")) {
+            Some("") => Some(Role::GenericContainer),
+            _ => Some(Role::Image),
+        },
         "iframe" => Some(Role::Iframe),
 
         "input" => {

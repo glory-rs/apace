@@ -624,7 +624,7 @@ pub(crate) fn stroke_text<'a>(
                 let synthesis = run.synthesis();
                 let glyph_xform = synthesis
                     .skew()
-                    .map(|angle| Affine::skew(angle.to_radians().tan() as f64, 0.0));
+                    .map(|angle| Affine::skew(-angle.to_radians().tan() as f64, 0.0));
 
                 let css_font_size = font_size as f64 / scale;
 
@@ -665,23 +665,26 @@ pub(crate) fn stroke_text<'a>(
                 };
 
                 let normalized_coords: &[i16] = bytemuck::cast_slice(run.normalized_coords());
-                scene.draw_glyphs(
-                    font,
-                    font_size,
-                    !FONT_EMBOLDEN_ENABLED, // hint
-                    normalized_coords,
-                    embolden,
-                    Fill::NonZero,
-                    &anyrender::Paint::from(fill_color),
-                    1.0, // alpha
-                    transform,
-                    glyph_xform,
-                    glyph_run.positioned_glyphs().map(|glyph| anyrender::Glyph {
-                        id: glyph.id as _,
-                        x: glyph.x,
-                        y: glyph.y,
-                    }),
-                );
+                // Color glyphs can paint opaque even with a transparent brush.
+                if font_size > 0.0 && fill_color.components[3] > 0.0 {
+                    scene.draw_glyphs(
+                        font,
+                        font_size,
+                        !FONT_EMBOLDEN_ENABLED, // hint
+                        normalized_coords,
+                        embolden,
+                        Fill::NonZero,
+                        &anyrender::Paint::from(fill_color),
+                        1.0, // alpha
+                        transform,
+                        glyph_xform,
+                        glyph_run.positioned_glyphs().map(|glyph| anyrender::Glyph {
+                            id: glyph.id as _,
+                            x: glyph.x,
+                            y: glyph.y,
+                        }),
+                    );
+                }
 
                 // Accumulate this run's contribution to each decorating box on its ancestor
                 // path. The decoration is drawn once per box after the whole line has been

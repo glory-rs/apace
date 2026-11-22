@@ -1,9 +1,11 @@
 use super::ElementCx;
+use super::background::get_cyclic;
 use crate::color::{Color, ToColorColor as _};
 use anyrender::PaintScene;
 use apace_dom::CopyStyleGetters;
 use kurbo::{Rect, Vec2};
 use peniko::{Compose, Fill, Mix};
+use style::properties::generated::longhands::background_clip::single_value::computed_value::T as BackgroundClip;
 
 impl ElementCx<'_, '_> {
     pub(super) fn draw_outset_box_shadow(&self, scene: &mut impl PaintScene) {
@@ -15,14 +17,18 @@ impl ElementCx<'_, '_> {
 
         let current_color = self.style.clone_color();
         let opacity = self.style.get_effects().opacity;
-        let bg_color = self
-            .style
-            .get_background()
+        let bg_styles = self.style.get_background();
+        let bg_color = bg_styles
             .background_color
             .resolve_to_absolute(&current_color)
             .as_srgb_color();
         let bg_is_opaque = bg_color.components[3] >= 1.0;
-        let needs_clip = opacity < 1.0 || !bg_is_opaque;
+        let last_layer = bg_styles.background_image.0.len() - 1;
+        let bg_clip = get_cyclic(&bg_styles.background_clip.0, last_layer);
+        let needs_clip = opacity < 1.0
+            || !bg_is_opaque
+            || *bg_clip != BackgroundClip::BorderBox
+            || self.context.canvas_background_node_id == Some(self.node.id);
 
         let max_shadow_rect = box_shadow.iter().fold(Rect::ZERO, |prev, shadow| {
             let x = shadow.base.horizontal.px() as f64 * self.scale;

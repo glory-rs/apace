@@ -13,7 +13,7 @@ use apace_traits::events::{
     MouseEventButtons, PointerCoords, PointerDetails, UiEvent,
 };
 use apace_traits::shell::Viewport;
-use wingy::dpi::{LogicalPosition, PhysicalInsets, PhysicalPosition};
+use wingy::dpi::{LogicalPosition, PhysicalInsets, PhysicalPosition, PhysicalSize};
 use wingy::keyboard::PhysicalKey;
 
 use atomic_refcell::AtomicRefCell;
@@ -38,6 +38,17 @@ fn get_safe_area_insets(_window: &dyn Window) -> PhysicalInsets<u32> {
 #[cfg(not(target_os = "macos"))]
 fn get_safe_area_insets(window: &dyn Window) -> PhysicalInsets<u32> {
     window.safe_area()
+}
+
+fn content_size(size: PhysicalSize<u32>, insets: PhysicalInsets<u32>) -> (u32, u32) {
+    (
+        size.width
+            .saturating_sub(insets.left)
+            .saturating_sub(insets.right),
+        size.height
+            .saturating_sub(insets.top)
+            .saturating_sub(insets.bottom),
+    )
 }
 
 pub struct WindowConfig<Rend: WindowRenderer> {
@@ -180,13 +191,7 @@ impl<Rend: WindowRenderer> View<Rend> {
         let safe_area_insets = get_safe_area_insets(&*wingy_window);
         let theme = wingy_window.theme().unwrap_or(Theme::Light);
         let color_scheme = theme_to_color_scheme(theme);
-        // The viewport is the window surface minus the safe area insets
-        let viewport_width = size
-            .width
-            .saturating_sub(safe_area_insets.left + safe_area_insets.right);
-        let viewport_height = size
-            .height
-            .saturating_sub(safe_area_insets.top + safe_area_insets.bottom);
+        let (viewport_width, viewport_height) = content_size(size, safe_area_insets);
         let viewport = Viewport::new(viewport_width, viewport_height, scale, color_scheme);
 
         // Create shell provider
@@ -324,6 +329,9 @@ impl<Rend: WindowRenderer> View<Rend> {
             return false;
         }
 
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        self.refresh_safe_area();
+
         let window_id = self.window_id();
 
         // Resync the renderer to the current viewport. Resize/scale events that
@@ -401,6 +409,8 @@ impl<Rend: WindowRenderer> View<Rend> {
     pub fn redraw(&mut self) {
         #[cfg(target_os = "ios")]
         self.ios_request_redraw.set(false);
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        self.refresh_safe_area();
         let animation_time = self.current_animation_time();
         let is_visible = self.is_visible;
 
@@ -519,6 +529,17 @@ impl<Rend: WindowRenderer> View<Rend> {
         }
     }
 
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    fn refresh_safe_area(&mut self) {
+        // Wingy can request a redraw for a safe-area change without resizing the surface.
+        let insets = get_safe_area_insets(&*self.window);
+        if insets != self.safe_area_insets {
+            self.safe_area_insets = insets;
+            let size = self.window.surface_size();
+            self.doc.inner_mut().viewport_mut().window_size = content_size(size, insets);
+        }
+    }
+
     #[cfg(feature = "accessibility")]
     pub fn build_accessibility_tree(&mut self) {
         let inner = self.doc.inner();
@@ -570,9 +591,7 @@ impl<Rend: WindowRenderer> View<Rend> {
         self.last_resize_at = None;
 
         let insets = self.safe_area_insets;
-        let width = size.width.saturating_sub(insets.left + insets.right);
-        let height = size.height.saturating_sub(insets.top + insets.bottom);
-        self.with_viewport(|v| v.window_size = (width, height));
+        self.with_viewport(|v| v.window_size = content_size(size, insets));
         self.request_redraw();
     }
 
@@ -621,9 +640,7 @@ impl<Rend: WindowRenderer> View<Rend> {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let insets = self.safe_area_insets;
-                    let width = physical_size.width - insets.left - insets.right;
-                    let height = physical_size.height - insets.top - insets.bottom;
-                    self.with_viewport(|v| v.window_size = (width, height));
+                    self.with_viewport(|v| v.window_size = content_size(physical_size, insets));
                     self.request_redraw();
                 }
             }
@@ -881,5 +898,25 @@ impl<Rend: WindowRenderer> View<Rend> {
             WindowEvent::DragLeft { .. } => {},
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn content_size_subtracts_safe_area() {
+        let size = PhysicalSize::new(1080, 2400);
+        let insets = PhysicalInsets::new(136, 0, 63, 0);
+        assert_eq!(content_size(size, insets), (1080, 2201));
+    }
+
+    #[test]
+    fn content_size_saturates_when_insets_exceed_surface() {
+        // A surface can briefly be smaller than stale insets (e.g. mid-rotation).
+        let size = PhysicalSize::new(100, 50);
+        let insets = PhysicalInsets::new(40, 80, 40, 80);
+        assert_eq!(content_size(size, insets), (0, 0));
     }
 }

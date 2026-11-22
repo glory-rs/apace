@@ -26,6 +26,7 @@ use apace_traits::navigation::{DummyNavigationProvider, NavigationProvider};
 use apace_traits::net::{AbortSignal, DummyNetProvider, NetProvider, Request};
 use apace_traits::node_id::NodeId;
 use apace_traits::shell::{DummyShellProvider, ShellProvider, Viewport};
+use bitflags::bitflags;
 use cursor_icon::CursorIcon;
 use linebender_resource_handle::Blob;
 use markup5ever::{LocalName, local_name};
@@ -295,6 +296,8 @@ pub struct BaseDocument {
     /// last [`resolve`](Self::resolve), to be applied (coalesced into a single
     /// device rebuild) at the start of the next resolve.
     pub(crate) pending_device_changes: DeviceChanges,
+    /// Document-wide work for the next [`resolve`](Self::resolve).
+    pub(crate) flags: DocumentFlags,
     /// Strategy for Stylo's style traversal during `resolve`.
     pub(crate) style_threading: StyleThreading,
     /// Whether incremental layout is enabled for this document. When disabled,
@@ -449,6 +452,17 @@ pub struct BaseDocument {
     pub(crate) abort_signal: Option<AbortSignal>,
 }
 
+bitflags! {
+    /// Document-wide work for the next [`resolve`](BaseDocument::resolve).
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    pub(crate) struct DocumentFlags: u8 {
+        /// Recompute the transform and scrollable overflow of every node, not
+        /// only of the damaged ones. Both are kept in device pixels, so a scale
+        /// change makes them stale throughout the tree.
+        const RESOLVE_ALL_TRANSFORMS = 0b0000_0001;
+    }
+}
+
 impl BaseDocument {
     /// Create a new (empty) [`BaseDocument`] with the specified configuration
     pub fn new(config: DocumentConfig) -> Self {
@@ -531,6 +545,7 @@ impl BaseDocument {
             viewport,
             media_type,
             pending_device_changes: DeviceChanges::empty(),
+            flags: DocumentFlags::empty(),
             style_threading: config.style_threading,
             incremental_layout: config.incremental.unwrap_or(true),
             subdocument_depth: config.subdocument_depth,
@@ -1545,6 +1560,7 @@ impl BaseDocument {
                     family_name: overrides.family_name.as_deref(),
                     weight: weight_override,
                     style: overrides.style,
+                    width: overrides.width,
                     ..Default::default()
                 };
 
@@ -2404,9 +2420,11 @@ impl BaseDocument {
         self.scroll_viewport_by(0.0, 0.0); // Clamp scroll offset
 
         // Text is shaped at a specific scale factor, so cached inline layouts
-        // must be invalidated when the scale changes.
+        // must be invalidated when the scale changes, as must every node's
+        // transform and scrollable overflow (kept in device pixels).
         if changes.contains(DeviceChanges::SCALE) {
             self.invalidate_inline_contexts();
+            self.flags.insert(DocumentFlags::RESOLVE_ALL_TRANSFORMS);
         }
 
         // Color-scheme changes affect values that are resolved at cascade time
@@ -2831,11 +2849,7 @@ impl BaseDocument {
             let Some(element) = node.element_data() else {
                 return false;
             };
-            if element.name.local == local_name!("canvas") && element.has_attr(local_name!("src")) {
-                return true;
-            }
-
-            false
+            element.name.local == local_name!("canvas") && element.has_attr(local_name!("src"))
         })
     }
 
@@ -4169,6 +4183,7 @@ mod font_face_override_tests {
                     family_name: Some(String::from(ALIAS)),
                     weight: Some(800.0),
                     style: Some(parley::fontique::FontStyle::Italic),
+                    width: None,
                 },
             )),
         };

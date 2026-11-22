@@ -1075,6 +1075,62 @@ impl<'a> TElement for ApaceNode<'a> {
             Some(LengthPercentage::Length(length))
         }
 
+        /// The rules for parsing a legacy font size: an integer from 1 to 7, either
+        /// absolute or relative (`+n`, `-n`) to the default size 3.
+        ///
+        /// https://html.spec.whatwg.org/multipage/rendering.html#rules-for-parsing-a-legacy-font-size
+        fn parse_legacy_font_size(value: &str) -> Option<u8> {
+            use style::str::{HTML_SPACE_CHARACTERS, read_numbers};
+
+            let mut chars = value
+                .trim_start_matches(HTML_SPACE_CHARACTERS)
+                .chars()
+                .peekable();
+            let sign = chars.next_if(|&c| matches!(c, '+' | '-'));
+            let number = match read_numbers(chars) {
+                (Some(number), _) => number,
+                // No digits
+                (None, 0) => return None,
+                // Too many digits for an i64, but every number above 7 gives the same size
+                (None, _) => i64::MAX,
+            };
+            let size = match sign {
+                Some('+') => number.saturating_add(3),
+                Some('-') => 3 - number,
+                _ => number,
+            };
+            Some(size.clamp(1, 7) as u8)
+        }
+
+        /// The `face` attribute's value parsed as a `font-family` list, as Gecko and
+        /// Blink parse it: CSS-wide keywords and `var()` are not family lists.
+        fn parse_font_face_attr(value: &str) -> Option<PropertyDeclaration> {
+            use style::properties::{
+                PropertyId, SourcePropertyDeclaration, parse_one_declaration_into,
+            };
+            use style::stylesheets::{CssRuleType, Origin};
+            use style_traits::ParsingMode;
+
+            let property = PropertyId::parse_enabled_for_all_content("font-family").ok()?;
+            let mut declarations = SourcePropertyDeclaration::default();
+            parse_one_declaration_into(
+                &mut declarations,
+                property,
+                value,
+                Origin::Author,
+                &crate::url::DocumentUrl::default().url_extra_data(),
+                None,
+                ParsingMode::DEFAULT,
+                style::context::QuirksMode::NoQuirks,
+                CssRuleType::Style,
+            )
+            .ok()?;
+            declarations
+                .drain()
+                .declarations
+                .find(|declaration| matches!(declaration, PropertyDeclaration::FontFamily(_)))
+        }
+
         // `<input type=image>` is the only input type that is replaced
         // content, and it is the only one that takes the embedded-content
         // presentational attributes. The type attribute is matched ASCII
@@ -1084,6 +1140,8 @@ impl<'a> TElement for ApaceNode<'a> {
                 attr.name.local == local_name!("type") && attr.value.eq_ignore_ascii_case("image")
             });
 
+        let is_solid_hr = *tag == local_name!("hr")
+            && (elem.has_attr(local_name!("color")) || elem.has_attr(local_name!("noshade")));
         // https://html.spec.whatwg.org/multipage/#the-lang-and-xml:lang-attributes
         let accepts_lang = elem.name.ns == ns!(html) || elem.name.ns == ns!(svg);
         let mut lang = None;
@@ -1097,6 +1155,23 @@ impl<'a> TElement for ApaceNode<'a> {
                     lang = Some(value);
                 } else if attr.name.ns == ns!() && accepts_lang {
                     lang = lang.or(Some(value));
+                }
+            }
+
+            // A `font` element's `face` sets `font-family` to the attribute's value, and
+            // its `size` maps to a font size keyword.
+            // https://html.spec.whatwg.org/multipage/rendering.html#phrasing-content-3
+            if *tag == local_name!("font") && elem.name.ns == ns!(html) {
+                if *name == local_name!("face")
+                    && let Some(family) = parse_font_face_attr(value)
+                {
+                    push_style(family);
+                } else if *name == local_name!("size")
+                    && let Some(size) = parse_legacy_font_size(value)
+                {
+                    push_style(PropertyDeclaration::FontSize(
+                        style::values::specified::FontSize::from_html_size(size),
+                    ));
                 }
             }
 
@@ -1191,6 +1266,46 @@ impl<'a> TElement for ApaceNode<'a> {
                         } else {
                             push_style(PropertyDeclaration::MarginTop(margin.clone()));
                             push_style(PropertyDeclaration::MarginBottom(margin));
+                        }
+                    }
+                }
+            }
+
+            // `hr`'s `color` maps to `color` as a legacy colour value, and its
+            // `size` to the border widths (with `color` or `noshade` present)
+            // or to the height. The solid border style that `color` and
+            // `noshade` also ask for is a UA rule in default.css.
+            // https://html.spec.whatwg.org/multipage/rendering.html#the-hr-element-2
+            if *tag == local_name!("hr") {
+                if *name == local_name!("color") {
+                    use style::values::specified::{Color, ColorPropertyValue};
+                    if let Ok(color) = style::servo::attr::parse_legacy_color(value) {
+                        push_style(PropertyDeclaration::Color(ColorPropertyValue(
+                            Color::from_absolute_color(color),
+                        )));
+                    }
+                }
+                if *name == local_name!("size") {
+                    if let Ok(size) = style::servo::attr::parse_unsigned_integer(value.chars()) {
+                        use style::values::specified::{BorderSideWidth, NoCalcLength};
+                        if is_solid_hr {
+                            let width = BorderSideWidth::from_px(size as f32 / 2.0);
+                            push_style(PropertyDeclaration::BorderTopWidth(width.clone()));
+                            push_style(PropertyDeclaration::BorderRightWidth(width.clone()));
+                            push_style(PropertyDeclaration::BorderBottomWidth(width.clone()));
+                            push_style(PropertyDeclaration::BorderLeftWidth(width));
+                        } else if size == 1 {
+                            push_style(PropertyDeclaration::BorderBottomWidth(
+                                BorderSideWidth::from_px(0.0),
+                            ));
+                        } else if size > 1 {
+                            use style::values::generics::{NonNegative, length::Size};
+                            use style::values::specified::LengthPercentage;
+                            let height =
+                                LengthPercentage::Length(NoCalcLength::from_px((size - 2) as f32));
+                            push_style(PropertyDeclaration::Height(Size::LengthPercentage(
+                                NonNegative(height),
+                            )));
                         }
                     }
                 }

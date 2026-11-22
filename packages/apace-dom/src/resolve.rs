@@ -22,6 +22,7 @@ use takia::AvailableSpace;
 
 use crate::{
     BaseDocument,
+    document::DocumentFlags,
     layout::{
         LayoutPassState,
         construct::{
@@ -126,12 +127,14 @@ impl BaseDocument {
 
         // Resolve transforms
         let transform_span = self.profile_span(Phase::Transforms);
-        self.resolve_transforms(root_node_id);
+        let resolve_all = self.flags.contains(DocumentFlags::RESOLVE_ALL_TRANSFORMS);
+        self.flags.remove(DocumentFlags::RESOLVE_ALL_TRANSFORMS);
+        self.resolve_transforms(root_node_id, resolve_all);
         for index in 0..self.top_layers.len() {
             if !self.top_layer_is_rendered(self.top_layers[index].node_id) {
                 continue;
             }
-            self.resolve_transforms(self.top_layers[index].node_id);
+            self.resolve_transforms(self.top_layers[index].node_id, resolve_all);
         }
         timer.record_time("transform");
         // Only the current editor needs caret scrolling/IME placement after
@@ -206,17 +209,20 @@ impl BaseDocument {
         timer.print_times(&format!("Resolve({}): ", self.id()));
     }
 
-    fn resolve_transforms(&mut self, node_id: NodeId) -> Rect {
+    fn resolve_transforms(&mut self, node_id: NodeId, resolve_all: bool) -> Rect {
         if !self.nodes.contains_key(node_id) {
             return Rect::ZERO;
         }
 
         let scale = self.viewport.scale_f64();
 
-        if !self.nodes[node_id]
-            .damage()
-            .map(|d| d.contains(style::selector_parser::RestyleDamage::RECALCULATE_OVERFLOW))
-            .unwrap_or(false)
+        // Damage propagation follows DOM parents and can bypass anonymous boxes.
+        if !resolve_all
+            && !self.nodes[node_id].is_anonymous()
+            && !self.nodes[node_id]
+                .damage()
+                .map(|d| d.contains(style::selector_parser::RestyleDamage::RECALCULATE_OVERFLOW))
+                .unwrap_or(false)
         {
             let node = &self.nodes[node_id];
             let location = node.final_layout().location.map(|v| v as f64 * scale);
@@ -246,7 +252,7 @@ impl BaseDocument {
                 if self.nodes[child_id].is_out_of_flow() {
                     continue;
                 }
-                let child_rect_in_self = self.resolve_transforms(child_id);
+                let child_rect_in_self = self.resolve_transforms(child_id, resolve_all);
                 overflow = overflow.union(child_rect_in_self);
             }
         }
@@ -256,7 +262,7 @@ impl BaseDocument {
             if !self.nodes.contains_key(child_id) {
                 continue;
             }
-            let child_rect_in_self = self.resolve_transforms(child_id);
+            let child_rect_in_self = self.resolve_transforms(child_id, resolve_all);
             overflow = overflow.union(child_rect_in_self);
         }
         *self.nodes[node_id].hoisted_children.borrow_mut() = hoisted_children;
@@ -265,7 +271,7 @@ impl BaseDocument {
             if self.nodes[pseudo].is_out_of_flow() {
                 continue;
             }
-            let child_rect_in_self = self.resolve_transforms(pseudo);
+            let child_rect_in_self = self.resolve_transforms(pseudo, resolve_all);
             overflow = overflow.union(child_rect_in_self);
         }
 

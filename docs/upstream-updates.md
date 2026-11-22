@@ -29,3 +29,5 @@ Stylo/anyrender upgrades, new Taffy APIs, and overlapping input/painting/layout
 changes for separate work. Those changes require architecture or rendering
 validation beyond this compatibility and resource-loading update. No upstream
 merge replaces Apace's maintained control states or resource limits.
+
+See the [2026-11-22 commit-by-commit review](upstream-review-20261122.md) for the next upstream range.
